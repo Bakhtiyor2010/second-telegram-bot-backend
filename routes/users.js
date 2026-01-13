@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
-const bot = require("../../bot"); // bot.js
+const bot = require("../bot"); // bot.js
 
 // -------------------- POST — botdan keladi --------------------
 router.post("/", async (req, res) => {
