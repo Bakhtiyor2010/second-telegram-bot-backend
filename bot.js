@@ -2,23 +2,23 @@ require("dotenv").config();
 const TelegramBot = require("node-telegram-bot-api");
 const User = require("./models/User");
 
+// Botni polling mode bilan ishga tushiramiz
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 
-// User state
+// User state saqlash uchun
 const userStates = {};
 
 // /start komandasi
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
-
   userStates[chatId] = { step: "ask_name" };
 
   try {
     await bot.sendMessage(
       chatId,
-      "Salom, Fayzullaev IELTS School bot ga xush kelibsiz! Agar ma’lumotlaringizni o'zgartirmoqchi bo'lsangiz /update, botni tark etmoqchi bo'lsangiz /delete ni bosing."
+      "Salom! Fayzullaev IELTS School botiga xush kelibsiz!\n" +
+      "Ma’lumotlaringizni o'zgartirmoqchi bo'lsangiz /update, botni tark etmoqchi bo'lsangiz /delete ni bosing."
     );
-
     await bot.sendMessage(chatId, "Iltimos, ismingizni kiriting:");
   } catch (err) {
     console.error(err);
@@ -29,7 +29,6 @@ bot.onText(/\/start/, async (msg) => {
 // /update komandasi
 bot.onText(/\/update/, async (msg) => {
   const chatId = msg.chat.id;
-
   delete userStates[chatId];
 
   try {
@@ -50,7 +49,6 @@ bot.onText(/\/update/, async (msg) => {
 // /delete komandasi
 bot.onText(/\/delete/, async (msg) => {
   const chatId = msg.chat.id;
-
   delete userStates[chatId];
 
   try {
@@ -66,13 +64,13 @@ bot.onText(/\/delete/, async (msg) => {
   }
 });
 
-// Har qanday matnli xabar
+// Har qanday matnli xabarni qabul qilish
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
 
   const state = userStates[chatId];
-  if (!state) return;
+  if (!state) return; // Agar state bo'lmasa, xabarni e’tiborsiz qoldiramiz
 
   try {
     // --- Ro‘yxatdan o‘tish ---
@@ -113,17 +111,14 @@ bot.on("message", async (msg) => {
 
       await User.findOneAndUpdate(
         { telegramId: chatId },
-        {
-          name: state.name,
-          surname: state.surname,
-          phone: state.phone,
-        },
+        { name: state.name, surname: state.surname, phone: state.phone },
         { new: true }
       );
 
       await bot.sendMessage(chatId, `Sizning ma’lumotlaringiz yangilandi: ${state.name} ${state.surname}, ${state.phone}`);
       delete userStates[chatId];
     }
+
   } catch (err) {
     console.error(err);
     bot.sendMessage(chatId, "Server xatosi yuz berdi.");

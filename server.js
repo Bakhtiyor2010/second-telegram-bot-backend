@@ -7,10 +7,11 @@ const connectDB = require("./config/db");
 const userRoutes = require("./routes/users");
 const adminRoutes = require("./routes/admin");
 const User = require("./models/User");
-const bot = require("./bot");
+const bot = require("./bot"); // Telegram bot
 
 const app = express();
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
@@ -29,7 +30,7 @@ app.delete("/api/users/:id", async (req, res) => {
 
     await User.findByIdAndDelete(req.params.id);
 
-    // Telegram xabar
+    // Telegram xabar yuborish
     bot.sendMessage(user.telegramId, "❌ Sizning ma’lumotlaringiz admin tomonidan o‘chirildi.")
       .catch(err => console.error("Telegram message error:", err.message));
 
@@ -51,17 +52,14 @@ app.post("/api/send-message", async (req, res) => {
   try {
     const users = await User.find({ _id: { $in: userIds } });
 
-    // Promise.allSettled bilan barcha xabarlarni bir vaqtda yuborish
-    const results = await Promise.allSettled(users.map(user => 
+    // Barcha xabarlarni parallel yuborish
+    const results = await Promise.allSettled(users.map(user =>
       bot.sendMessage(user.telegramId, message)
         .then(() => ({ user: `${user.name} ${user.surname}`, status: "Sent" }))
         .catch(() => ({ user: `${user.name} ${user.surname}`, status: "Failed" }))
     ));
 
-    // Promise.allSettled natijasi object ichida keladi
-    const finalResults = results.map(r => r.value);
-
-    res.json({ results: finalResults });
+    res.json({ results: results.map(r => r.value) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
