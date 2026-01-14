@@ -6,13 +6,13 @@ const bot = require("../bot");
 // POST — user qo'shish (botdan keladi)
 router.post("/", async (req, res) => {
   try {
-    const { telegramId, username, name, phone } = req.body;
+    const { telegramId, username, name, phone, groupId } = req.body;
     if (!telegramId || !name) return res.status(400).json({ error: "Missing fields" });
 
     const exists = await User.findOne({ telegramId });
     if (exists) return res.status(200).json({ message: "User already exists" });
 
-    const user = new User({ telegramId, username, name, phone });
+    const user = new User({ telegramId, username, name, phone, groupId });
     await user.save();
     res.status(201).json(user);
   } catch (err) {
@@ -21,10 +21,12 @@ router.post("/", async (req, res) => {
   }
 });
 
-// GET — admin ko‘radi
+// GET — admin ko‘radi, guruh bo‘yicha filter
 router.get("/", async (req, res) => {
   try {
-    const users = await User.find().sort({ createdAt: -1 });
+    const { groupId } = req.query;
+    const filter = groupId ? { groupId } : {};
+    const users = await User.find(filter).sort({ createdAt: -1 });
     res.json(users);
   } catch (err) {
     console.error(err);
@@ -47,18 +49,21 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    if(!user) return res.status(404).json({ error: "User not found" });
+    if (!user) return res.status(404).json({ error: "User not found" });
 
     const telegramId = user.telegramId;
     await User.findByIdAndDelete(req.params.id);
 
-    if(telegramId) {
-      try { await bot.sendMessage(telegramId, "Salom! Sizning ma’lumotlaringiz admin tomonidan o‘chirildi."); }
-      catch(err){ console.error("Telegram xabar yuborishda xato:", err); }
+    if (telegramId) {
+      try { 
+        await bot.sendMessage(telegramId, "Salom! Sizning ma’lumotlaringiz admin tomonidan o‘chirildi."); 
+      } catch (err) { 
+        console.error("Telegram xabar yuborishda xato:", err); 
+      }
     }
 
     res.json({ message: "User was deleted successfully" });
-  } catch(err) {
+  } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
   }
