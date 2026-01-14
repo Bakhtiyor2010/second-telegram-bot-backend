@@ -5,6 +5,7 @@ const userSchema = new mongoose.Schema({
   surname: { type: String, required: true },
   telegramId: { type: String, required: true },
   phone: { type: String, required: true },
+  groupId: { type: mongoose.Schema.Types.ObjectId, ref: "Group" },
   createdAt: { type: Date, default: Date.now }
 });
 

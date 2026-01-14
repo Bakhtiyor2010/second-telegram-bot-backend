@@ -6,6 +6,8 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 const userRoutes = require("./routes/users");
 const adminRoutes = require("./routes/admin");
+const groupRoutes = require("./routes/groups");
+const attendanceRoutes = require("./routes/attendance");
 const User = require("./models/User");
 const bot = require("./bot"); // Telegram bot
 
@@ -18,6 +20,8 @@ app.use(express.json());
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/groups", groupRoutes);
+app.use("/api/attendance", attendanceRoutes);
 
 // Test route
 app.get("/", (req, res) => res.send("API working ✅"));
@@ -31,8 +35,10 @@ app.delete("/api/users/:id", async (req, res) => {
     await User.findByIdAndDelete(req.params.id);
 
     // Telegram xabar yuborish
-    bot.sendMessage(user.telegramId, "❌ Sizning ma’lumotlaringiz admin tomonidan o‘chirildi.")
-      .catch(err => console.error("Telegram message error:", err.message));
+    if (user.telegramId) {
+      bot.sendMessage(user.telegramId, "❌ Sizning ma’lumotlaringiz admin tomonidan o‘chirildi.")
+        .catch(err => console.error("Telegram message error:", err.message));
+    }
 
     res.json({ message: "User deleted and notified" });
   } catch (err) {
@@ -54,8 +60,7 @@ app.post("/api/send-message", async (req, res) => {
 
     const results = await Promise.allSettled(
       users.map(user => {
-        // Shu yerda template qo‘shiladi
-        const text = `Assalomu alaykum, hurmatli ${user.name} ${user.surname}\n\n${message}`;
+        const text = `Assalomu alaykum, hurmatli ${user.name || ""} ${user.surname || ""}\n\n${message}`;
         return bot
           .sendMessage(user.telegramId, text)
           .then(() => ({ user: `${user.name} ${user.surname}`, status: "Sent" }))
