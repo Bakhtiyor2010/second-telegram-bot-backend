@@ -15,10 +15,14 @@ const attachAdmin = require("./middlewares/auth"); // faqat protected route uchu
 
 const app = express();
 app.use(cors({
-  origin: ["http://127.0.0.1:5500", "http://localhost:5500"],
-  credentials: true
+  origin: [
+    "http://127.0.0.1:5500",          // lokal testing
+    "http://localhost:5500",
+    "https://fayzullaevieltsschool.netlify.app"  // Netlify domeningiz
+  ],
+  credentials: true,
+  methods: ["GET","POST","PUT","DELETE","OPTIONS"] // kerakli metodlarni qo‘shish
 }));
-
 app.use(express.json());
 
 // Public route (login)
