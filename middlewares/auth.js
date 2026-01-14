@@ -1,13 +1,12 @@
-const User = require("../models/User");
+const Admin = require("../models/Admin");
 
-// Simple example: req.header("user-id") orqali user attach qilamiz
-async function attachUser(req, res, next) {
-  const userId = req.header("user-id"); // frontendan user id yuborilishi kerak
-  if (!userId) return next(); // user loginsiz bo‘lsa ham davom etadi
+async function attachAdmin(req, res, next) {
+  const adminId = req.header("admin-id");
+  if (!adminId) return next();
 
   try {
-    const user = await User.findById(userId);
-    if (user) req.user = user;
+    const admin = await Admin.findById(adminId);
+    if (admin) req.admin = admin;
     next();
   } catch (err) {
     console.error(err);
@@ -15,4 +14,4 @@ async function attachUser(req, res, next) {
   }
 }
 
-module.exports = attachUser;
+module.exports = attachAdmin;

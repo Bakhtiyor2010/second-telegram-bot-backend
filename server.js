@@ -10,10 +10,11 @@ const groupRoutes = require("./routes/groups");
 const attendanceRoutes = require("./routes/attendance");
 const paymentRoutes = require("./routes/payment");
 const bot = require("./bot");
-const attachUser = require("./middlewares/auth");
+const attachAdmin = require("./middlewares/auth"); // Admin attach
 
 const app = express();
 
+// Middleware
 app.use(cors({
   origin: [
     "http://127.0.0.1:5500",
@@ -23,18 +24,19 @@ app.use(cors({
 }));
 
 app.use(express.json());
-app.use(attachUser); 
+app.use(attachAdmin); // req.admin ni attach qiladi
 
+// Routes
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/payment", paymentRoutes);
 
-app.get("/", (req, res) => {
-  res.send("API working ✅");
-});
+// Test route
+app.get("/", (req, res) => res.send("API working ✅"));
 
+// Bulk Telegram message
 app.post("/api/send-message", async (req, res) => {
   const { userIds, message } = req.body;
   if (!userIds || !message) {
@@ -68,13 +70,12 @@ app.post("/api/send-message", async (req, res) => {
   }
 });
 
+// Server start
 const startServer = async () => {
   try {
     await connectDB();
     const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () =>
-      console.log(`Server running on port ${PORT} ✅`)
-    );
+    app.listen(PORT, () => console.log(`Server running on port ${PORT} ✅`));
   } catch (err) {
     console.error("Server start error:", err.message);
     process.exit(1);
