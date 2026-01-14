@@ -4,8 +4,6 @@ const Group = require("../models/Group");
 const User = require("../models/User");
 const bot = require("../bot");
 
-// const checkRole = require("../middlewares/checkRole");  // o'chirdik
-
 // GET all groups – barcha adminlar ko‘ra oladi
 router.get("/", async (req, res) => {
   try {
@@ -84,6 +82,7 @@ router.delete("/:id", async (req, res) => {
     }
 
     res.json({ message: "Group and its users deleted" });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
