@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const Attendance = require("../models/Attendance");
+const bot = require("../bot");
+const User = require("../models/User");
 
 // Attendance qo'shish / update
 router.post("/", async (req, res) => {
@@ -12,13 +14,18 @@ router.post("/", async (req, res) => {
     today.setHours(0,0,0,0);
 
     let attendance = await Attendance.findOne({ userId, groupId, date: { $gte: today } });
-
     if(attendance) {
       attendance.status = status;
       await attendance.save();
     } else {
       attendance = new Attendance({ userId, groupId, status });
       await attendance.save();
+    }
+
+    // Telegram notification
+    const user = await User.findById(userId);
+    if(user && user.telegramId) {
+      bot.sendMessage(user.telegramId, `Sizning attendance holatingiz: ${status}`);
     }
 
     res.json({ message: "Attendance saved", attendance });
@@ -32,13 +39,9 @@ router.post("/", async (req, res) => {
 router.get("/history/:groupId", async (req, res) => {
   try {
     const { groupId } = req.params;
-    const today = new Date();
-    today.setHours(0,0,0,0);
-
     const records = await Attendance.find({ groupId })
       .populate("userId", "name surname")
       .sort({ date: -1 });
-
     res.json(records);
   } catch(err) {
     console.error(err);

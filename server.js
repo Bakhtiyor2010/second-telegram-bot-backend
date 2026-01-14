@@ -7,8 +7,7 @@ const connectDB = require("./config/db");
 const userRoutes = require("./routes/users");
 const adminRoutes = require("./routes/admin");
 const groupRoutes = require("./routes/groups");
-const attendanceRoutes = require("./routes/attendance"); // yangi
-const User = require("./models/User");
+const attendanceRoutes = require("./routes/attendance"); // attendance
 const bot = require("./bot"); // Telegram bot
 
 const app = express();
@@ -21,55 +20,26 @@ app.use(express.json());
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/groups", groupRoutes);
-app.use("/api/attendance", attendanceRoutes); // qo‘shildi
+app.use("/api/attendance", attendanceRoutes);
 
 // Test route
 app.get("/", (req, res) => res.send("API working ✅"));
 
-// Userni o‘chirish + Telegram xabar
-app.delete("/api/users/:id", async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    await User.findByIdAndDelete(req.params.id);
-
-    // Telegram xabar yuborish
-    if (user.telegramId) {
-      bot.sendMessage(
-        user.telegramId,
-        "❌ Sizning ma’lumotlaringiz admin tomonidan o‘chirildi."
-      ).catch(err => console.error("Telegram message error:", err.message));
-    }
-
-    res.json({ message: "User deleted and notified" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
 // Bulk Telegram message
 app.post("/api/send-message", async (req, res) => {
   const { userIds, message } = req.body;
-
-  if (!userIds || !message) {
-    return res.status(400).json({ error: "userIds or message missing" });
-  }
+  if (!userIds || !message) return res.status(400).json({ error: "userIds or message missing" });
 
   try {
-    const users = await User.find({ _id: { $in: userIds } });
-
+    const users = await require("./models/User").find({ _id: { $in: userIds } });
     const results = await Promise.allSettled(
       users.map(user => {
         const text = `Assalomu alaykum, hurmatli ${user.name || ""} ${user.surname || ""}\n\n${message}`;
-        return bot
-          .sendMessage(user.telegramId, text)
+        return bot.sendMessage(user.telegramId, text)
           .then(() => ({ user: `${user.name} ${user.surname}`, status: "Sent" }))
           .catch(() => ({ user: `${user.name} ${user.surname}`, status: "Failed" }));
       })
     );
-
     res.json({ results: results.map(r => r.value) });
   } catch (err) {
     console.error(err);
@@ -77,7 +47,7 @@ app.post("/api/send-message", async (req, res) => {
   }
 });
 
-// MongoDB ulanish va server ishga tushirish
+// Start server
 const startServer = async () => {
   try {
     await connectDB(); // db.js dagi connectDB()
