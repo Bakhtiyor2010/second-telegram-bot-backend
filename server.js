@@ -4,15 +4,11 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 
 // Routes
-const userRoutes = require("./routes/users");
 const adminRoutes = require("./routes/admin");
+const userRoutes = require("./routes/users");
 const groupRoutes = require("./routes/groups");
 const attendanceRoutes = require("./routes/attendance");
 const paymentRoutes = require("./routes/payment");
-
-// Middleware
-const attachAdmin = require("./middlewares/auth"); // faqat protected route uchun
-const bot = require("./bot"); // Telegram bot
 
 const app = express();
 
@@ -27,53 +23,25 @@ app.use(cors({
   methods: ["GET","POST","PUT","DELETE","OPTIONS"]
 }));
 
-// JSON parse middleware
+// JSON parse
 app.use(express.json());
 
-// ✅ Public route (login)
-// Login uchun middleware ishlatilmaydi
+// Public login route
 app.use("/api/admin", adminRoutes);
 
-// Protected routes (attachAdmin ishlatiladi)
-app.use("/api/users", attachAdmin, userRoutes);
-app.use("/api/groups", attachAdmin, groupRoutes);
-app.use("/api/attendance", attachAdmin, attendanceRoutes);
-app.use("/api/payment", attachAdmin, paymentRoutes);
+// Boshqa routelar (agar middleware kerak bo‘lsa, keyin qo‘shish mumkin)
+app.use("/api/users", userRoutes);
+app.use("/api/groups", groupRoutes);
+app.use("/api/attendance", attendanceRoutes);
+app.use("/api/payment", paymentRoutes);
 
 // Test route
 app.get("/", (req, res) => res.send("API working ✅"));
 
-// Telegram bulk message (protected)
-app.post("/api/send-message", attachAdmin, async (req, res) => {
-  const { userIds, message } = req.body;
-  if (!userIds || !message) {
-    return res.status(400).json({ error: "userIds or message missing" });
-  }
-
-  try {
-    const User = require("./models/User");
-    const users = await User.find({ _id: { $in: userIds } });
-
-    const results = await Promise.allSettled(
-      users.map(user => {
-        const text = `Assalomu alaykum, hurmatli ${user.name || ""} ${user.surname || ""}\n\n${message}`;
-        return bot.sendMessage(user.telegramId, text)
-          .then(() => ({ user: `${user.name} ${user.surname}`, status: "Sent" }))
-          .catch(() => ({ user: `${user.name} ${user.surname}`, status: "Failed" }));
-      })
-    );
-
-    res.json({ results: results.map(r => r.value) });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
 // Server start
 const startServer = async () => {
   try {
-    await connectDB(); // MongoDB bilan ulanish
+    await connectDB();
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => console.log(`Server running on port ${PORT} ✅`));
   } catch (err) {

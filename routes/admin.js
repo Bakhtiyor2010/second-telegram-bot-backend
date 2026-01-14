@@ -16,13 +16,14 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Username yoki password xato' });
     }
 
-    // Oddiy plain text solishtirish
+    // Plain text solishtirish
     if (admin.password !== password) {
       return res.status(401).json({ error: 'Username yoki password xato' });
     }
 
-    // Login muvaffaqiyatli
+    // Agar hammasi to‘g‘ri bo‘lsa
     res.json({ message: 'Login muvaffaqiyatli!', role: admin.role });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server xatoligi' });
