@@ -12,36 +12,41 @@ const paymentRoutes = require("./routes/payment");
 
 // Middleware
 const attachAdmin = require("./middlewares/auth"); // faqat protected route uchun
+const bot = require("./bot"); // Telegram bot
 
 const app = express();
+
+// CORS middleware
 app.use(cors({
   origin: [
-    "http://127.0.0.1:5500",          // lokal testing
+    "http://127.0.0.1:5500",
     "http://localhost:5500",
-    "https://fayzullaevieltsschool.netlify.app"  // Netlify domeningiz
+    "https://fayzullaevieltsschool.netlify.app"
   ],
   credentials: true,
-  methods: ["GET","POST","PUT","DELETE","OPTIONS"] // kerakli metodlarni qo‘shish
+  methods: ["GET","POST","PUT","DELETE","OPTIONS"]
 }));
+
+// JSON parse middleware
 app.use(express.json());
 
 // Public route (login)
 app.use("/api/admin", adminRoutes); // login POST route shu yerda bo‘ladi, middleware yo‘q
 
-// Protected route example
+// Protected routes example
 // app.use("/api/admin/protected", attachAdmin, protectedAdminRoutes);
 
-// Boshqa routelar
-app.use("/api/users", userRoutes);
-app.use("/api/groups", groupRoutes);
-app.use("/api/attendance", attendanceRoutes);
-app.use("/api/payment", paymentRoutes);
+// Other routes
+app.use("/api/users", attachAdmin, userRoutes);
+app.use("/api/groups", attachAdmin, groupRoutes);
+app.use("/api/attendance", attachAdmin, attendanceRoutes);
+app.use("/api/payment", attachAdmin, paymentRoutes);
 
 // Test route
 app.get("/", (req, res) => res.send("API working ✅"));
 
 // Telegram bulk message
-app.post("/api/send-message", async (req, res) => {
+app.post("/api/send-message", attachAdmin, async (req, res) => {
   const { userIds, message } = req.body;
   if (!userIds || !message) return res.status(400).json({ error: "userIds or message missing" });
 
@@ -66,7 +71,7 @@ app.post("/api/send-message", async (req, res) => {
   }
 });
 
-// Server start
+// Start server
 const startServer = async () => {
   try {
     await connectDB();
