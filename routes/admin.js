@@ -2,39 +2,38 @@ const express = require("express");
 const router = express.Router();
 const Admin = require("../models/Admin");
 
-// LOGIN
+// Login endpoint
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
-
   try {
     const admin = await Admin.findOne({ username, password });
-    if (!admin) {
-      return res.status(401).json({ error: "Username yoki password xato" });
-    }
+    if (!admin) return res.status(401).json({ error: "Username yoki password xato" });
 
-    // oddiy admin-id token
-    res.json({
-      adminId: admin._id,
-      name: admin.name,
-      role: admin.role
-    });
+    // Oddiy token (misol uchun)
+    const token = "admin-" + admin._id;
+
+    res.json({ token, name: admin.name, role: admin.role || "moderator" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server xatosi" });
   }
 });
 
-// ME (ROLE OLISH UCHUN)
-router.get("/me", (req, res) => {
-  if (!req.admin) {
-    return res.status(401).json({ error: "Not authenticated" });
-  }
+// ME endpoint
+router.get("/me", async (req, res) => {
+  const token = req.header("admin-id"); // frontend header orqali yuboradi
+  if (!token) return res.status(401).json({ error: "Token missing" });
 
-  res.json({
-    id: req.admin._id,
-    name: req.admin.name,
-    role: req.admin.role
-  });
+  const adminId = token.split("-")[1];
+  try {
+    const admin = await Admin.findById(adminId);
+    if (!admin) return res.status(404).json({ error: "Admin not found" });
+
+    res.json({ name: admin.name, role: admin.role || "moderator" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server xatosi" });
+  }
 });
 
 module.exports = router;
