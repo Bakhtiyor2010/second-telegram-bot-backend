@@ -1,42 +1,37 @@
-const form = document.getElementById("loginForm");
-const button = document.getElementById("loginBtn");
+const express = require("express");
+const router = express.Router();
+const Admin = require("../models/Admin");
 
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  const username = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value.trim();
-  if (!username || !password) return alert("Username va password kiriting");
-
-  button.textContent = "Loading...";
-  button.disabled = true;
-
+// POST /api/admin/login
+router.post("/login", async (req, res) => {
   try {
-    const res = await fetch(
-  "https://successful-grace-production-5eea.up.railway.app/api/admin/login",
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  }
-);
+    const { username, password } = req.body;
 
-const data = await res.json();
-console.log("Login response:", data);
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username va password kerak" });
+    }
 
-if (res.ok) {
-  // login muvaffaqiyatli
-  ADMIN_ROLE = data.role; // <-- shu yerda role olish
-  window.location.href = "admin.html";
-} else {
-  alert(data.error || "Login failed");
-}
+    // DB da username qidiring
+    const admin = await Admin.findOne({ username });
+    if (!admin) {
+      return res.status(401).json({ error: "Username yoki password xato" });
+    }
+
+    // Plain text password tekshirish
+    if (admin.password !== password) {
+      return res.status(401).json({ error: "Username yoki password xato" });
+    }
+
+    // Login muvaffaqiyatli, role yuboriladi
+    res.json({
+      message: "Login muvaffaqiyatli!",
+      role: admin.role, // "superadmin" yoki "moderator"
+    });
 
   } catch (err) {
     console.error(err);
-    alert("Server bilan ulanishda xatolik");
-  } finally {
-    button.textContent = "Login";
-    button.disabled = false;
+    res.status(500).json({ error: "Server xatoligi" });
   }
 });
+
+module.exports = router;
