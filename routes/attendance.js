@@ -9,9 +9,9 @@ router.post("/", async (req, res) => {
   try {
     const { userId, groupId, status, message } = req.body;
 
-    // Agar frontend “Send Message” uchun kelgan bo‘lsa (status bo‘lmasa)
+    // agar faqat message yuborilgan bo‘lsa
     if (!status && message) {
-      if (!userId || !message) return res.status(400).json({ error: "Missing fields" });
+      if (!userId || userId.length === 0) return res.status(400).json({ error: "No users selected" });
 
       const users = await User.find({ _id: { $in: Array.isArray(userId) ? userId : [userId] } });
       for (const u of users) {
@@ -20,8 +20,8 @@ router.post("/", async (req, res) => {
       return res.json({ message: "Messages sent ✅" });
     }
 
-    // Attendance qo‘shish yoki update
-    if (!userId || !groupId) return res.status(400).json({ error: "Missing fields" });
+    // attendance saqlash
+    if (!userId || !groupId || !status) return res.status(400).json({ error: "Missing fields" });
 
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -35,7 +35,6 @@ router.post("/", async (req, res) => {
       await attendance.save();
     }
 
-    // Telegram xabar yuborish
     const user = await User.findById(userId);
     if(user && user.telegramId) {
       const msg = `Siz bugun ${status === "present" ? "KELDINGIZ" : "KELMADINGIZ"} (${new Date().toLocaleDateString()})`;
@@ -48,5 +47,6 @@ router.post("/", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 module.exports = router;
