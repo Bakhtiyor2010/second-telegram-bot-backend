@@ -1,11 +1,5 @@
-const mongoose = require("mongoose");
+const db = require("../config/db");
 
-const adminSchema = new mongoose.Schema({
-  username: { type: String, required: true },
-  password: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now },
-  role: { type: String, enum: ["superadmin", "moderator"], required: true },
-});
+const adminsCollection = db.collection("admins");
 
-// Bu yerda collection nomini "datas" qilib belgilaymiz
-module.exports = mongoose.model("Admin", adminSchema, "datas");
+module.exports = adminsCollection;

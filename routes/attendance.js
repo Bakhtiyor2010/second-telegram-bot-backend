@@ -1,21 +1,24 @@
 const express = require("express");
 const router = express.Router();
-const User = require("../models/User");
+const usersCollection = require("../models/User");
 const bot = require("../bot");
 
-// Attendance faqat botga xabar yuborish
+// Attendance qo'shish / Telegram xabar yuborish
 router.post("/", async (req, res) => {
   try {
     const { userId, status, message } = req.body;
-
     if (!userId) return res.status(400).json({ error: "No users selected" });
 
-    const users = await User.find({ _id: { $in: Array.isArray(userId) ? userId : [userId] } });
+    // userId lar array bo‘lsa, hammasini ishlatamiz
+    const ids = Array.isArray(userId) ? userId : [userId];
 
-    for (const u of users) {
+    for (const id of ids) {
+      const userDoc = await usersCollection.doc(id).get();
+      if (!userDoc.exists) continue;
+
+      const u = userDoc.data();
       if (!u.telegramId) continue;
 
-      // Agar userga maxsus xabar berilsa, shuni yuboradi, aks holda present/absent xabar
       let msg = message;
       if (!message && status) {
         msg = `Siz bugun ${status === "present" ? "KELDINGIZ" : "KELMADINGIZ"} (${new Date().toLocaleDateString()})`;

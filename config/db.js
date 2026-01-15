@@ -1,19 +1,16 @@
-const mongoose = require("mongoose");
+const admin = require("firebase-admin");
+require("dotenv").config();
 
-const connectDB = async () => {
-  try {
-    if (!process.env.MONGO_URI) {
-      throw new Error("MONGO_URI .env faylida topilmadi!");
-    }
-
-    // Mongoose 7 da useNewUrlParser va useUnifiedTopology kerak emas
-    await mongoose.connect(process.env.MONGO_URI);
-
-    console.log("MongoDB connected ✅");
-  } catch (error) {
-    console.error("MongoDB connection error ❌:", error.message);
-    process.exit(1);
-  }
+const serviceAccount = {
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+  privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n")
 };
 
-module.exports = connectDB;
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+const db = admin.firestore();
+
+module.exports = db;

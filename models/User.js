@@ -1,13 +1,5 @@
-const mongoose = require("mongoose");
+const db = require("../config/db");
 
-const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  surname: { type: String, required: true },
-  telegramId: { type: String, required: true },
-  phone: { type: String, required: true },
-  groupId: { type: mongoose.Schema.Types.ObjectId, ref: "Group" },
-  role: { type: String, enum: ["superadmin", "moderator"], default: "moderator" }, // Qo'shildi
-  createdAt: { type: Date, default: Date.now }
-});
+const usersCollection = db.collection("users");
 
-module.exports = mongoose.model("User", userSchema);
+module.exports = usersCollection;

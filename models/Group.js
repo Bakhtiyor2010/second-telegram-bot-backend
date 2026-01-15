@@ -1,7 +1,5 @@
-const mongoose = require("mongoose");
+const db = require("../config/db");
 
-const GroupSchema = new mongoose.Schema({
-  name: { type: String, required: true }
-});
+const groupsCollection = db.collection("groups");
 
-module.exports = mongoose.model("Group", GroupSchema);
+module.exports = groupsCollection;

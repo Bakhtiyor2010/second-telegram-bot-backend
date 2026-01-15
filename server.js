@@ -1,14 +1,12 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const connectDB = require("./config/db");
 
 // Routes
 const adminRoutes = require("./routes/admin");
 const userRoutes = require("./routes/users");
 const groupRoutes = require("./routes/groups");
 const attendanceRoutes = require("./routes/attendance");
-// paymentRoutes olib tashlandi
 
 const app = express();
 
@@ -23,13 +21,11 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 }));
 
-// JSON parse
+// JSON parse middleware
 app.use(express.json());
 
-// Public login route
+// Routes
 app.use("/api/admin", adminRoutes);
-
-// Boshqa routelar
 app.use("/api/users", userRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/attendance", attendanceRoutes);
@@ -38,15 +34,5 @@ app.use("/api/attendance", attendanceRoutes);
 app.get("/", (req, res) => res.send("API working ✅"));
 
 // Server start
-const startServer = async () => {
-  try {
-    await connectDB();
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => console.log(`Server running on port ${PORT} ✅`));
-  } catch (err) {
-    console.error("Server start error:", err.message);
-    process.exit(1);
-  }
-};
-
-startServer();
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT} ✅`));

@@ -1,31 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const Admin = require('../models/Admin');
+const adminsCollection = require("../models/Admin");
 
-// POST /api/admin/login
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Username va password kerak' });
 
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username va password kerak' });
-    }
+    const snapshot = await adminsCollection.where("username", "==", username).get();
+    if (snapshot.empty) return res.status(401).json({ error: 'Username yoki password xato' });
 
-    // DB da username qidiring
-    const admin = await Admin.findOne({ username });
-    if (!admin) {
-      return res.status(401).json({ error: 'Username yoki password xato' });
-    }
+    const admin = snapshot.docs[0].data();
+    if (admin.password !== password) return res.status(401).json({ error: 'Username yoki password xato' });
 
-    // Plain text password tekshirish
-    if (admin.password !== password) {
-      return res.status(401).json({ error: 'Username yoki password xato' });
-    }
-
-    res.json({
-      message: 'Login muvaffaqiyatli!',
-      role: admin.role,
-    });
+    res.json({ message: 'Login muvaffaqiyatli!', role: admin.role });
 
   } catch (err) {
     console.error(err);
