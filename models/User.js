@@ -1,5 +1,5 @@
 const db = require("../config/db");
 
-const usersCollection = db.collection("users");
+const Users = db.collection("users");
 
-module.exports = usersCollection;
+module.exports = Users;

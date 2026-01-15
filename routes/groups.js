@@ -4,7 +4,7 @@ const groupsCollection = require("../models/Group");
 const usersCollection = require("../models/User");
 const bot = require("../bot");
 
-// GET all groups
+// GET — barcha guruhlar
 router.get("/", async (req, res) => {
   try {
     const snapshot = await groupsCollection.get();
@@ -16,14 +16,15 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST create group
+// POST — admin sayt orqali group yaratadi
 router.post("/", async (req, res) => {
   try {
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: "Name required" });
 
     const newGroupRef = groupsCollection.doc();
-    await newGroupRef.set({ name });
+    await newGroupRef.set({ name, createdAt: new Date() });
+
     res.json({ id: newGroupRef.id, name });
   } catch (err) {
     console.error(err);
@@ -31,12 +32,15 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT edit group
+// PUT — admin group nomini tahrirlashi mumkin
 router.put("/:id", async (req, res) => {
   try {
     const { name } = req.body;
+    if (!name) return res.status(400).json({ error: "Name required" });
+
     await groupsCollection.doc(req.params.id).update({ name });
 
+    // Guruh nomi o‘zgarganda userlarga Telegram xabar
     const usersSnapshot = await usersCollection.where("groupId", "==", req.params.id).get();
     for (const doc of usersSnapshot.docs) {
       const user = doc.data();
@@ -46,34 +50,6 @@ router.put("/:id", async (req, res) => {
     }
 
     res.json({ id: req.params.id, name });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// DELETE group
-router.delete("/:id", async (req, res) => {
-  try {
-    const groupDoc = await groupsCollection.doc(req.params.id).get();
-    if (!groupDoc.exists) return res.status(404).json({ error: "Group not found" });
-
-    const groupName = groupDoc.data().name;
-    const usersSnapshot = await usersCollection.where("groupId", "==", req.params.id).get();
-
-    await groupsCollection.doc(req.params.id).delete();
-
-    for (const doc of usersSnapshot.docs) {
-      await usersCollection.doc(doc.id).delete();
-      if (doc.data().telegramId) {
-        await bot.sendMessage(
-          doc.data().telegramId,
-          `⚠️ Sizning guruhingiz "${groupName}" o'chirildi. Sizning ma'lumotlaringiz ham o'chirildi.`
-        );
-      }
-    }
-
-    res.json({ message: "Group and its users deleted" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
