@@ -16,13 +16,12 @@ router.post("/paid", async (req, res) => {
     const { userId, name, surname } = req.body;
     if (!userId) return res.status(400).json({ error: "userId required" });
 
-    const { startDate, endDate } = await setPaid(userId);
+    const { startDate } = await setPaid(userId);
 
     await bot.sendMessage(
       userId,
       `Assalomu alaykum, hurmatli ${name || ""} ${surname || ""}!
-To‘lov qabul qilindi.
-📅 ${startDate.toLocaleDateString()} dan ${endDate.toLocaleDateString()} gacha amal qiladi.`
+To‘lov qabul qilindi. (📅 ${formatDate(startDate)})`
     );
 
     res.json({ success: true });
@@ -31,6 +30,14 @@ To‘lov qabul qilindi.
     res.status(500).json({ error: "Paid failed" });
   }
 });
+
+function formatDate(date) {
+  const d = new Date(date);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0"); // Oy 0 dan boshlanadi
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
 
 // 🔹 UNPAID
 router.post("/unpaid", async (req, res) => {
