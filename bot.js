@@ -2,6 +2,8 @@ require("dotenv").config();
 const TelegramBot = require("node-telegram-bot-api");
 const usersCollection = require("./models/User");
 const groupsCollection = require("./models/Group");
+const admin = require("firebase-admin");
+const db = admin.firestore();
 
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 const userStates = {}; // ChatID bo'yicha foydalanuvchi state
@@ -58,6 +60,59 @@ bot.onText(/\/delete/, async (msg) => {
   }
 
   sendMessage(chatId, "Siz hali ro‘yxatdan o‘tmagansiz.");
+});
+
+// 🔹 /payment komandasi
+bot.onText(/\/payment/, async (msg) => {
+  const chatId = msg.chat.id;
+
+  try {
+    const paymentDoc = await db
+      .collection("payments")
+      .doc(String(chatId))
+      .get();
+
+    // 🔸 Hech qanday payment yo‘q
+    if (!paymentDoc.exists) {
+      return sendMessage(
+        chatId,
+        "ℹ️ To‘lov haqida ma’lumot topilmadi."
+      );
+    }
+
+    const payment = paymentDoc.data();
+
+    // 🔸 PAID
+    if (payment.status === "paid") {
+      const startDate = payment.startDate.toDate();
+      const endDate = payment.endDate.toDate();
+
+      return sendMessage(
+        chatId,
+        `✅ To‘lov qabul qilingan
+📅 ${startDate.toLocaleDateString()} dan ${endDate.toLocaleDateString()} gacha amal qiladi`
+      );
+    }
+
+    // 🔸 UNPAID
+    if (payment.status === "unpaid") {
+      return sendMessage(
+        chatId,
+        `❌ To‘lov amalga oshirilmagan
+Iltimos, to‘lovni tezroq amalga oshiring.`
+      );
+    }
+
+    // 🔸 fallback
+    return sendMessage(
+      chatId,
+      "ℹ️ To‘lov holati noma’lum."
+    );
+
+  } catch (err) {
+    console.error("Payment command error:", err);
+    sendMessage(chatId, "❌ Server xatosi yuz berdi.");
+  }
 });
 
 // 🔹 Callback query (inline buttons)
