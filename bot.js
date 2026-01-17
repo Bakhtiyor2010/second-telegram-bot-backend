@@ -1,16 +1,14 @@
-// --- OLD CODE SAQLANADI ---
 require("dotenv").config();
 const TelegramBot = require("node-telegram-bot-api");
+const usersCollection = require("./models/User");
+const groupsCollection = require("./models/Group");
 const admin = require("firebase-admin");
 const db = admin.firestore();
-
-const usersCollection = db.collection("users");
-const pendingCollection = db.collection("users_pending");
-const groupsCollection = db.collection("groups");
 
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 const userStates = {}; // ChatID bo'yicha foydalanuvchi state
 
+// 🔹 Foydalanuvchiga xabar yuborish helper
 async function sendMessage(chatId, text, options = {}) {
   try {
     await bot.sendMessage(chatId, text, options);
@@ -19,28 +17,83 @@ async function sendMessage(chatId, text, options = {}) {
   }
 }
 
-// --- /start komandasi saqlanadi ---
+// 🔹 /start komandasi
 bot.onText(/\/start/, async (msg) => {
-  const chatId = String(msg.chat.id);
+  const chatId = msg.chat.id;
 
-  const approvedSnap = await usersCollection.doc(chatId).get();
-  if (approvedSnap.exists) {
+  // Foydalanuvchi hali ro'yxatdan o'tmagan bo'lsa
+  const snapshot = await usersCollection.doc(String(chatId)).get();
+  if (snapshot.exists) {
     return sendMessage(chatId, "Siz allaqachon ro‘yxatdan o‘tgan ekansiz. /update bilan yangilashingiz mumkin.");
   }
 
-  const pendingSnap = await pendingCollection.doc(chatId).get();
-  if (pendingSnap.exists) {
-    return sendMessage(chatId, "Siz allaqachon ro‘yxatdan o‘tibsiz. Admin tasdig‘ini kuting.");
-  }
-
+  // Foydalanuvchi state boshlash
   userStates[chatId] = { step: "ask_name" };
+
   await sendMessage(chatId, "Assalomu alaykum! Fayzullaev IELTS School botiga xush kelibsiz!");
   await sendMessage(chatId, "Iltimos, ismingizni kiriting:");
 });
 
-// --- CALLBACK QUERY: guruh tanlash (pendingga yozish) ---
+// 🔹 /update komandasi
+bot.onText(/\/update/, async (msg) => {
+  const chatId = msg.chat.id;
+  const snapshot = await usersCollection.where("telegramId", "==", chatId).get();
+
+  if (snapshot.empty) {
+    return sendMessage(chatId, "Siz hali ro‘yxatdan o‘tmagansiz. /start ni bosing.");
+  }
+
+  userStates[chatId] = { step: "update_name" };
+  await sendMessage(chatId, "Iltimos, yangi ismingizni kiriting:");
+});
+
+// 🔹 /delete komandasi
+bot.onText(/\/delete/, async (msg) => {
+  const chatId = msg.chat.id;
+  const snapshot = await usersCollection.where("telegramId", "==", chatId).get();
+
+  if (!snapshot.empty) {
+    const docId = snapshot.docs[0].id;
+    await usersCollection.doc(docId).delete();
+    delete userStates[chatId];
+    return sendMessage(chatId, "Sizning ma’lumotlaringiz o‘chirildi. /start bilan qayta ro‘yxatdan o‘ting.");
+  }
+
+  sendMessage(chatId, "Siz hali ro‘yxatdan o‘tmagansiz.");
+});
+
+// 🔹 /payment komandasi
+bot.onText(/\/payment/, async (msg) => {
+  const userId = msg.chat.id;
+
+  const doc = await db.collection("payments").doc(String(userId)).get();
+
+  if (!doc.exists) {
+    return bot.sendMessage(
+      userId,
+      "❌ Sizda faol to‘lov mavjud emas."
+    );
+  }
+
+  const { paidAt } = doc.data();
+
+  const d = paidAt.toDate();
+  const date =
+    String(d.getDate()).padStart(2, "0") + "/" +
+    String(d.getMonth() + 1).padStart(2, "0") + "/" +
+    d.getFullYear();
+
+  await bot.sendMessage(
+    userId,
+    `✅ To‘lov qabul qilingan.
+📅 Sana: ${date}`
+  );
+});
+
+// 🔹 Callback query (inline buttons)
+// 🔹 Callback query (inline buttons)
 bot.on("callback_query", async (query) => {
-  const chatId = String(query.message.chat.id);
+  const chatId = query.message.chat.id;
   const state = userStates[chatId];
   if (!state) return bot.answerCallbackQuery(query.id);
 
@@ -50,33 +103,50 @@ bot.on("callback_query", async (query) => {
     const groupName = groupDoc.data()?.name || "Unknown";
 
     if (state.step === "ask_group") {
-      state.selectedGroupId = groupId;
+      state.groupId = groupId;
 
-      // 🔹 NEW LOGIC: pendingCollection ga yoziladi
-      await pendingCollection.doc(chatId).set({
+      // 🔹 USER APPROVAL LOGIKASI
+      const pendingCollection = db.collection("users_pending"); // yangi collection
+      await pendingCollection.doc(String(chatId)).set({
         telegramId: chatId,
-        firstName: state.name,
-        lastName: state.surname,
+        name: state.name,
+        surname: state.surname,
         phone: state.phone,
-        selectedGroupId: groupId,
-        status: "pending", // pending holat
+        groupId,
+        status: "pending",       // pending status
         createdAt: new Date()
       });
 
-      await sendMessage(chatId, `Rahmat, ${state.name} ${state.surname}! Siz guruhga tanladingiz: ${groupName}. Admin tasdig‘ini kuting.`);
+      await sendMessage(chatId, `Rahmat, ${state.name} ${state.surname}! Siz ${groupName} guruhini tanladingiz. Admin tasdig'ini kuting.`);
+      delete userStates[chatId];
+
+    } else if (state.step === "update_group") {
+      state.groupId = groupId;
+      const snapshot = await usersCollection.where("telegramId", "==", chatId).get();
+      if (!snapshot.empty) {
+        const docId = snapshot.docs[0].id;
+        await usersCollection.doc(docId).update({
+          name: state.name,
+          surname: state.surname,
+          phone: state.phone,
+          groupId
+        });
+      }
+      await sendMessage(chatId, `Sizning ma’lumotlaringiz yangilandi va guruhingiz ${groupName} bo‘ldi.`);
       delete userStates[chatId];
     }
 
     await bot.answerCallbackQuery(query.id);
+
   } catch (err) {
     console.error(err);
     sendMessage(chatId, "Server xatosi yuz berdi.");
   }
 });
 
-// --- MESSAGE HANDLER: foydalanuvchi ma'lumotlarini olish ---
+// 🔹 Matnli xabarlarni qabul qilish
 bot.on("message", async (msg) => {
-  const chatId = String(msg.chat.id);
+  const chatId = msg.chat.id;
   const text = msg.text;
   const state = userStates[chatId];
   if (!state) return;
@@ -94,8 +164,8 @@ bot.on("message", async (msg) => {
 
     } else if (state.step === "ask_phone") {
       state.phone = text;
-
       const groupsSnapshot = await groupsCollection.get();
+
       if (groupsSnapshot.empty) {
         delete userStates[chatId];
         return sendMessage(chatId, "Hozircha guruhlar mavjud emas. Admin bilan bog'laning.");
@@ -104,40 +174,36 @@ bot.on("message", async (msg) => {
       const buttons = groupsSnapshot.docs.map(g => [{ text: g.data().name, callback_data: g.id }]);
       state.step = "ask_group";
       return sendMessage(chatId, "Iltimos, guruhingizni tanlang:", { reply_markup: { inline_keyboard: buttons } });
+
+    } else if (state.step === "update_name") {
+      state.name = text;
+      state.step = "update_surname";
+      return sendMessage(chatId, "Familiyangizni kiriting:");
+
+    } else if (state.step === "update_surname") {
+      state.surname = text;
+      state.step = "update_phone";
+      return sendMessage(chatId, "Telefon raqamingizni kiriting (masalan +998901234567 yoki 901234567):");
+
+    } else if (state.step === "update_phone") {
+      state.phone = text;
+      const groupsSnapshot = await groupsCollection.get();
+
+      if (groupsSnapshot.empty) {
+        delete userStates[chatId];
+        return sendMessage(chatId, "Hozircha guruhlar mavjud emas. Admin bilan bog'laning.");
+      }
+
+      const buttons = groupsSnapshot.docs.map(g => [{ text: g.data().name, callback_data: g.id }]);
+      state.step = "update_group";
+      return sendMessage(chatId, "Iltimos, yangi guruhingizni tanlang:", { reply_markup: { inline_keyboard: buttons } });
     }
+
   } catch (err) {
     console.error(err);
     sendMessage(chatId, "Server xatosi yuz berdi.");
   }
 });
 
-// 🔹 --- NEW ADMIN LOGIC: pending userlarni approve/reject qilish ---
-// Admin panel backend orqali ishlaydi: Allow => usersCollection ga ko‘chiriladi, pendingCollection dan o‘chiriladi
-async function approveUser(chatId) {
-  const pendingSnap = await pendingCollection.doc(chatId).get();
-  if (!pendingSnap.exists) return;
+module.exports = bot;
 
-  const data = pendingSnap.data();
-  await usersCollection.doc(chatId).set({
-    telegramId: data.telegramId,
-    firstName: data.firstName,
-    lastName: data.lastName,
-    phone: data.phone,
-    groupId: data.selectedGroupId,
-    role: "moderator",
-    createdAt: data.createdAt
-  });
-
-  await pendingCollection.doc(chatId).delete();
-  await sendMessage(chatId, "Siz admin tomonidan tasdiqlandingiz va guruhga qo‘shildingiz!");
-}
-
-async function rejectUser(chatId) {
-  const pendingSnap = await pendingCollection.doc(chatId).get();
-  if (!pendingSnap.exists) return;
-
-  await pendingCollection.doc(chatId).delete();
-  await sendMessage(chatId, "Siz admin tomonidan rad qilindingiz. Qayta ro‘yxatdan o‘tish uchun /start ni bosing.");
-}
-
-module.exports = { bot, approveUser, rejectUser };
