@@ -14,31 +14,31 @@ router.post("/:telegramId", async (req, res) => {
 
     const data = snap.data();
 
-    // ❗ Agar data undefined bo'lsa default qiymat beramiz
+    // ✅ Boshqa nomlar bilan chaqirishga ehtiyot bo‘ling
     const firstName = data.firstName || "";
     const lastName = data.lastName || "";
     const phone = data.phone || "";
     const username = data.username || "";
-    const selectedGroupId = data.selectedGroupId || "";
+    const groupId = data.selectedGroupId || "";
 
-    // Group name olish
+    // 🔹 Group name olish
     let groupName = "";
-    if (selectedGroupId) {
-      const groupDoc = await db.collection("groups").doc(selectedGroupId).get();
+    if (groupId) {
+      const groupDoc = await db.collection("groups").doc(groupId).get();
       groupName = groupDoc.exists ? groupDoc.data().name : "";
     }
 
-    // ✅ users collection-ga to‘g‘ri saqlash
+    // ✅ users collection-ga to‘g‘ri qo‘shish
     await db.collection("users").doc(String(telegramId)).set({
-      telegramId: Number(telegramId),
+      telegramId,
       name: firstName,
       surname: lastName,
       phone,
       username,
-      groupId: selectedGroupId,
+      groupId,
       groupName,
       status: "active",
-      approvedAt: admin.firestore.Timestamp.now()
+      approvedAt: new Date()
     });
 
     // pending dan o‘chirish
@@ -46,10 +46,7 @@ router.post("/:telegramId", async (req, res) => {
 
     // Telegram notify
     try {
-      await bot.sendMessage(
-        telegramId,
-        `Hurmatli ${firstName} ${lastName}, siz "${groupName || "guruh"}" guruhiga qo‘shildingiz!`
-      );
+      await bot.sendMessage(telegramId, `Hurmatli ${firstName} ${lastName}, siz ${groupName} guruhiga qo‘shildingiz!`);
     } catch (err) {
       console.error("Telegram notify failed:", err);
     }
