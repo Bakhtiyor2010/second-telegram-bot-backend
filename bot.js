@@ -155,7 +155,7 @@ bot.on("message", async (msg) => {
     } else if (state.step === "ask_surname") {
       state.surname = text;
       state.step = "ask_phone";
-      return sendMessage(chatId, "Telefon raqamingizni kiriting (masalan +998901234567):");
+      return sendMessage(chatId, "Telefon raqamingizni kiriting (masalan +998901234567 yoki 901234567):");
 
     } else if (state.step === "ask_phone") {
       state.phone = text;
@@ -178,7 +178,7 @@ bot.on("message", async (msg) => {
     } else if (state.step === "update_surname") {
       state.surname = text;
       state.step = "update_phone";
-      return sendMessage(chatId, "Telefon raqamingizni kiriting (masalan +998901234567):");
+      return sendMessage(chatId, "Telefon raqamingizni kiriting (masalan +998901234567 yoki 901234567):");
 
     } else if (state.step === "update_phone") {
       state.phone = text;
