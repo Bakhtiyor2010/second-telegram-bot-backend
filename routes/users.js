@@ -27,16 +27,16 @@ router.post("/", async (req, res) => {
 
     // ✅ Data mapping to‘g‘ri qilindi
     await db.collection("users").doc(String(telegramId)).set({
-      telegramId: telegramId,
-      name: firstName || "",
-      surname: lastName || "",
-      phone: phone || "",
-      username: username || "",
-      groupId: selectedGroupId || "",
-      groupName: groupName || "",
-      status: "active",
-      approvedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+  telegramId: telegramId,
+  name: firstName || "",      // data.firstName → firstName
+  surname: lastName || "",    // data.lastName → lastName
+  phone: phone || "",
+  username: username || "",
+  groupId: selectedGroupId || "",
+  groupName: groupName || "",
+  status: "active",
+  approvedAt: admin.firestore.FieldValue.serverTimestamp(),
+});
 
     try {
       await bot.sendMessage(

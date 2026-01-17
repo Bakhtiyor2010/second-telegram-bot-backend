@@ -71,9 +71,9 @@ bot.on("callback_query", async (query) => {
   if (!state) return bot.answerCallbackQuery(query.id);
 
   try {
-    const groupId = query.data;
-    const groupDoc = await groupsCollection.doc(groupId).get();
-    const groupName = groupDoc.exists ? groupDoc.data().name : "—";
+const groupId = query.data;
+const groupDoc = await groupsCollection.doc(groupId).get();
+const groupName = groupDoc.exists ? groupDoc.data().name : "—";
 
     if (!state.name || !state.surname || !state.phone) {
       return sendMessage(chatId, "Iltimos, barcha ma'lumotlarni to‘liq kiriting.");
@@ -87,8 +87,8 @@ bot.on("callback_query", async (query) => {
         firstName: state.name,
         lastName: state.surname,
         phone: state.phone,
-        groupId,
-        groupName,
+        groupId,      // callback query dan kelgan groupId
+        groupName,    // shu yerda groupName to‘g‘ri saqlanadi
         status: "pending",
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });

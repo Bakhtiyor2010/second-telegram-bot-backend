@@ -14,23 +14,24 @@ router.post("/:telegramId", async (req, res) => {
 
     const data = snap.data();
 
-    let groupName = "";
-    if (data.selectedGroupId) {
-      const groupDoc = await db.collection("groups").doc(data.selectedGroupId).get();
-      groupName = groupDoc.exists ? groupDoc.data().name : "—";
-    }
+    const groupId = data.selectedGroupId || "";  
+let groupName = "—";
+if (groupId) {
+  const groupDoc = await db.collection("groups").doc(groupId).get();
+  if (groupDoc.exists) groupName = groupDoc.data().name;
+}
 
-    await db.collection("users").doc(telegramId).set({
-      telegramId: data.telegramId,
-      name: data.firstName || "",
-      surname: data.lastName || "",
-      phone: data.phone || "",
-      username: data.username || "",
-      groupId: data.selectedGroupId || "",
-      groupName,       // <-- shu to‘g‘ri saqlanadi
-      status: "active",
-      approvedAt: new Date()
-    });
+await db.collection("users").doc(telegramId).set({
+  telegramId: data.telegramId,
+  name: data.firstName || "",
+  surname: data.lastName || "",
+  phone: data.phone || "",
+  username: data.username || "",
+  groupId,
+  groupName,
+  status: "active",
+  approvedAt: admin.firestore.FieldValue.serverTimestamp(),
+});
 
     // pending dan o‘chirish
     await pendingRef.delete();
