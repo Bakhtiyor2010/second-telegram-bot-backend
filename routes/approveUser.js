@@ -14,14 +14,14 @@ router.post("/:telegramId", async (req, res) => {
 
     const data = snap.data();
 
-    // Group name olish
+    // 🔹 Group name olish
     let groupName = "";
     if (data.selectedGroupId) {
       const groupSnap = await db.collection("groups").doc(data.selectedGroupId).get();
       groupName = groupSnap.exists ? groupSnap.data().name : "";
     }
 
-    // Users collection-ga qo‘shish
+    // 🔹 Users collection-ga to‘g‘ri saqlash
     await db.collection("users").doc(telegramId).set({
       telegramId: data.telegramId || "",
       name: data.firstName || "",
@@ -34,10 +34,10 @@ router.post("/:telegramId", async (req, res) => {
       approvedAt: new Date(),
     });
 
-    // Pending userni o‘chirish
+    // 🔹 Pending userni o‘chirish
     await pendingRef.delete();
 
-    // Telegram notify
+    // 🔹 Telegram notify
     try {
       await bot.sendMessage(
         telegramId,
@@ -47,7 +47,18 @@ router.post("/:telegramId", async (req, res) => {
       console.error("Telegram notify failed:", err);
     }
 
-    res.json({ message: "User approved successfully" });
+    // 🔹 JSON response (frontend uchun)
+    res.json({
+      message: "User approved successfully",
+      user: {
+        telegramId: data.telegramId,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone: data.phone,
+        groupId: data.selectedGroupId,
+        groupName: groupName,
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
