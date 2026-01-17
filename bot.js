@@ -58,18 +58,19 @@ bot.on("callback_query", async (query) => {
   try {
     const groupId = query.data;
     const groupDoc = await groupsCollection.doc(groupId).get();
-    const groupName = groupDoc.data()?.name || "Unknown";
+    const groupName = groupDoc.exists ? groupDoc.data().name : "—";
 
     if (state.step === "ask_group") {
       state.groupId = groupId;
 
       // 🔹 Pending users ga saqlash
-      await db.collection("users_pending").doc(String(chatId)).set({
+      await pendingCollection.doc(String(chatId)).set({
         telegramId: chatId,
-        firstName: state.name,
-        lastName: state.surname,
+        name: state.name,
+        surname: state.surname,
         phone: state.phone,
         groupId,
+        groupName,            // <-- shu qo‘shildi
         status: "pending",
         createdAt: new Date()
       });

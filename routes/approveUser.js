@@ -15,20 +15,19 @@ router.post("/:telegramId", async (req, res) => {
     const data = snap.data();
 
     let groupName = "";
-    if (data.groupId) {
-      const groupDoc = await db.collection("groups").doc(data.groupId).get();
-      groupName = groupDoc.exists ? groupDoc.data().name : "";
+    if (data.selectedGroupId) {
+      const groupDoc = await db.collection("groups").doc(data.selectedGroupId).get();
+      groupName = groupDoc.exists ? groupDoc.data().name : "—";
     }
 
-    // ✅ users collection-ga to‘g‘ri qo‘shish
     await db.collection("users").doc(telegramId).set({
       telegramId: data.telegramId,
-      firstName: data.firstName || "",
-      lastName: data.lastName || "",
+      name: data.firstName || "",
+      surname: data.lastName || "",
       phone: data.phone || "",
       username: data.username || "",
-      groupId: data.groupId || "",
-      groupName,
+      groupId: data.selectedGroupId || "",
+      groupName,       // <-- shu to‘g‘ri saqlanadi
       status: "active",
       approvedAt: new Date()
     });
