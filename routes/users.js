@@ -4,26 +4,39 @@ const admin = require("firebase-admin");
 const db = admin.firestore();
 const bot = require("../bot");
 
-// ❌ POST — user qo‘shish to‘g‘ridan-to‘g‘ri disabled
+// POST — user qo‘shish (faqat pending)
 router.post("/", async (req, res) => {
   try {
-    const { telegramId, username, name, phone, selectedGroupId } = req.body;
-    if (!telegramId || !name) return res.status(400).json({ error: "telegramId va name majburiy" });
+    const { telegramId, username, name, surname, phone, selectedGroupId } = req.body;
 
+    if (!telegramId || !name) 
+      return res.status(400).json({ error: "telegramId va name majburiy" });
+
+    // allaqachon approved user bormi tekshirish
     const approvedSnap = await db.collection("users").doc(String(telegramId)).get();
-    if (approvedSnap.exists) return res.status(200).json({ message: "User already approved" });
+    if (approvedSnap.exists)
+      return res.status(200).json({ message: "User already approved" });
 
+    // allaqachon pending user bormi tekshirish
     const pendingSnap = await db.collection("users_pending").doc(String(telegramId)).get();
-    if (pendingSnap.exists) return res.status(200).json({ message: "User already pending approval" });
+    if (pendingSnap.exists)
+      return res.status(200).json({ message: "User already pending approval" });
 
-    // ✅ FAqat pending users ga qo‘shiladi
+    // ✅ FAqat pending users ga qo‘shish
+    let groupName = "";
+    if (selectedGroupId) {
+      const groupDoc = await db.collection("groups").doc(selectedGroupId).get();
+      groupName = groupDoc.exists ? groupDoc.data().name : "";
+    }
+
     await db.collection("users_pending").doc(String(telegramId)).set({
       telegramId,
-      username: username || null,
+      username: username || "",
       firstName: name,
-      lastName: req.body.surname || null,
-      phone: phone || null,
-      selectedGroupId: selectedGroupId || null,
+      lastName: surname || "",
+      phone: phone || "",
+      selectedGroupId: selectedGroupId || "",
+      groupName,  // <-- groupName qo‘shildi
       status: "pending",
       createdAt: new Date()
     });

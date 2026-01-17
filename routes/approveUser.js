@@ -7,21 +7,21 @@ const bot = require("../bot");
 router.post("/:telegramId", async (req, res) => {
   try {
     const { telegramId } = req.params;
-
     const pendingRef = db.collection("users_pending").doc(telegramId);
     const snap = await pendingRef.get();
+
     if (!snap.exists) return res.status(404).json({ message: "Pending user not found" });
 
     const data = snap.data();
 
-    // 🔹 Group name olish
+    // Group name olish
     let groupName = "";
     if (data.selectedGroupId) {
-      const groupSnap = await db.collection("groups").doc(data.selectedGroupId).get();
-      groupName = groupSnap.exists ? groupSnap.data().name : "";
+      const groupDoc = await db.collection("groups").doc(data.selectedGroupId).get();
+      groupName = groupDoc.exists ? groupDoc.data().name : "";
     }
 
-    // 🔹 Users collection-ga to‘g‘ri saqlash
+    // ✅ users collection-ga qo‘shish
     await db.collection("users").doc(telegramId).set({
       telegramId: data.telegramId || "",
       name: data.firstName || "",
@@ -29,39 +29,25 @@ router.post("/:telegramId", async (req, res) => {
       phone: data.phone || "",
       username: data.username || "",
       groupId: data.selectedGroupId || "",
-      groupName: groupName || "",
+      groupName,
       status: "active",
-      approvedAt: new Date(),
+      approvedAt: new Date()
     });
 
-    // 🔹 Pending userni o‘chirish
+    // pending dan o‘chirish
     await pendingRef.delete();
 
-    // 🔹 Telegram notify
+    // Telegram notify
     try {
-      await bot.sendMessage(
-        telegramId,
-        `Hurmatli ${data.firstName || "Foydalanuvchi"}, siz guruhga qo‘shildingiz!`
-      );
+      await bot.sendMessage(telegramId, `Hurmatli ${data.firstName}, siz ${groupName} guruhiga qo‘shildingiz!`);
     } catch (err) {
       console.error("Telegram notify failed:", err);
     }
 
-    // 🔹 JSON response (frontend uchun)
-    res.json({
-      message: "User approved successfully",
-      user: {
-        telegramId: data.telegramId,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone,
-        groupId: data.selectedGroupId,
-        groupName: groupName,
-      }
-    });
+    res.json({ message: "User approved successfully", groupName });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
