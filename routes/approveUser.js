@@ -3,36 +3,33 @@ const router = express.Router();
 const admin = require("firebase-admin");
 const db = admin.firestore();
 
-/**
- * POST /admin/approve-user/:telegramId
- */
 router.post("/:telegramId", async (req, res) => {
   const { telegramId } = req.params;
 
-  try {
-    const pendingRef = db.collection("users_pending").doc(telegramId);
-    const pendingSnap = await pendingRef.get();
+  const pendingRef = db.collection("users_pending").doc(telegramId);
+  const snap = await pendingRef.get();
 
-    if (!pendingSnap.exists) {
-      return res.status(404).json({ message: "Pending user topilmadi" });
-    }
-
-    const userData = pendingSnap.data();
-
-    // users ga ko‘chirish
-    await db.collection("users").doc(telegramId).set({
-      ...userData,
-      approvedAt: new Date(),
-      status: "active",
-    });
-
-    // pendingdan o‘chirish
-    await pendingRef.delete();
-
-    res.json({ message: "User tasdiqlandi" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  if (!snap.exists) {
+    return res.status(404).json({ message: "Pending user not found" });
   }
+
+  const data = snap.data();
+
+  // ✅ Faqat shu yerda users ga qo‘shiladi
+  await db.collection("users").doc(telegramId).set({
+    telegramId: data.telegramId,
+    name: data.firstName,
+    surname: data.lastName,
+    phone: data.phone,
+    username: data.username || "",
+    groupId: data.selectedGroupId,
+    status: "active",
+    approvedAt: new Date(),
+  });
+
+  await pendingRef.delete();
+
+  res.json({ message: "User approved successfully" });
 });
 
 module.exports = router;
