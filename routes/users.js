@@ -4,7 +4,7 @@ const admin = require("firebase-admin");
 const db = admin.firestore();
 const bot = require("../bot");
 
-// POST — user qo‘shish (faqat pending)
+// POST — faqat pending users
 router.post("/", async (req, res) => {
   try {
     const { telegramId, username, name, surname, phone, selectedGroupId } = req.body;
@@ -12,17 +12,14 @@ router.post("/", async (req, res) => {
     if (!telegramId || !name) 
       return res.status(400).json({ error: "telegramId va name majburiy" });
 
-    // allaqachon approved user bormi tekshirish
     const approvedSnap = await db.collection("users").doc(String(telegramId)).get();
     if (approvedSnap.exists)
       return res.status(200).json({ message: "User already approved" });
 
-    // allaqachon pending user bormi tekshirish
     const pendingSnap = await db.collection("users_pending").doc(String(telegramId)).get();
     if (pendingSnap.exists)
       return res.status(200).json({ message: "User already pending approval" });
 
-    // ✅ FAqat pending users ga qo‘shish
     let groupName = "";
     if (selectedGroupId) {
       const groupDoc = await db.collection("groups").doc(selectedGroupId).get();
@@ -30,18 +27,17 @@ router.post("/", async (req, res) => {
     }
 
     await db.collection("users_pending").doc(String(telegramId)).set({
-      telegramId,
+      telegramId: Number(telegramId),
       username: username || "",
       firstName: name,
       lastName: surname || "",
       phone: phone || "",
       selectedGroupId: selectedGroupId || "",
-      groupName,  // <-- groupName qo‘shildi
+      groupName,
       status: "pending",
-      createdAt: new Date()
+      createdAt: admin.firestore.Timestamp.now()
     });
 
-    // Telegram notify
     try {
       await bot.sendMessage(
         telegramId,
@@ -52,13 +48,14 @@ router.post("/", async (req, res) => {
     }
 
     res.status(201).json({ message: "User added to pending approval" });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// GET — admin ko‘radi, guruh bo‘yicha filter (approved users)
+// GET — approved users (admin)
 router.get("/", async (req, res) => {
   try {
     const { groupId } = req.query;
@@ -75,7 +72,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// PUT — user info yangilash
+// PUT — user yangilash
 router.put("/:id", async (req, res) => {
   try {
     await db.collection("users").doc(req.params.id).update(req.body);
@@ -101,7 +98,7 @@ router.delete("/:id", async (req, res) => {
       try {
         await bot.sendMessage(
           userData.telegramId,
-          `Hurmatli ${userData.name}, siz tizimdan o'chirildingiz. Qayta ro'yxatdan o'tish uchun /start ni bosing!`
+          `Hurmatli ${userData.name}, siz tizimdan o'chirildingiz. /start ni bosing.`
         );
       } catch (err) {
         console.error("Telegram notify failed:", err);

@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const adminsCollection = require("../models/Admin");
-const bcrypt = require("bcrypt"); // agar password hash bo‘lsa
 
 // POST /api/admin/login
 router.post("/login", async (req, res) => {
