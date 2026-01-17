@@ -8,26 +8,33 @@ router.post("/:telegramId", async (req, res) => {
   try {
     const { telegramId } = req.params;
 
-    // Pending userni olamiz
     const pendingRef = db.collection("users_pending").doc(telegramId);
     const snap = await pendingRef.get();
     if (!snap.exists) return res.status(404).json({ message: "Pending user not found" });
 
     const data = snap.data();
 
-    // ✅ Users collection-ga qo‘shamiz
+    // Group name olish
+    let groupName = "";
+    if (data.selectedGroupId) {
+      const groupSnap = await db.collection("groups").doc(data.selectedGroupId).get();
+      groupName = groupSnap.exists ? groupSnap.data().name : "";
+    }
+
+    // Users collection-ga qo‘shish
     await db.collection("users").doc(telegramId).set({
-      telegramId: data.telegramId,
-      name: data.firstName || "Unknown",
+      telegramId: data.telegramId || "",
+      name: data.firstName || "",
       surname: data.lastName || "",
       phone: data.phone || "",
       username: data.username || "",
       groupId: data.selectedGroupId || "",
+      groupName: groupName || "",
       status: "active",
       approvedAt: new Date(),
     });
 
-    // Pending dan o‘chiramiz
+    // Pending userni o‘chirish
     await pendingRef.delete();
 
     // Telegram notify
