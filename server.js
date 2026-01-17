@@ -22,7 +22,6 @@ app.use(express.json());
 /* =======================
    ROUTES
 ======================= */
-
 // Admin & Auth
 const adminRoutes = require("./routes/admin");
 
@@ -46,7 +45,6 @@ const rejectUserRoutes = require("./routes/rejectUser");
 /* =======================
    ROUTE BINDINGS
 ======================= */
-
 app.use("/api/admin", adminRoutes);
 
 // Users
@@ -76,3 +74,8 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT} ✅`);
 });
+
+/* =======================
+   TELEGRAM BOT
+======================= */
+require("./bot"); // <-- bot.js ni chaqiramiz va ishga tushiramiz
