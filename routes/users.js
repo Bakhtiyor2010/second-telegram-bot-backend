@@ -84,30 +84,30 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE — user o‘chirish va Telegram xabar
-router.delete("/:id", async (req, res) => {
+router.delete("/:userId", async (req, res) => {
   try {
-    const docRef = db.collection("users").doc(req.params.id);
-    const docSnap = await docRef.get();
-    if (!docSnap.exists) return res.status(404).json({ error: "User not found" });
+    const { userId } = req.params;
 
-    const userData = docSnap.data();
-    await docRef.delete();
+    // Foydalanuvchi ma'lumotini olish
+    const userDoc = await usersCollection.doc(String(userId)).get();
+    const userData = userDoc.exists ? userDoc.data() : {};
+    const name = userData.name || "";
+    const surname = userData.surname || "";
 
-    if (userData.telegramId) {
-      try {
-        await bot.sendMessage(
-          userData.telegramId,
-          `Hurmatli ${userData.firstName}, siz tizimdan o'chirildingiz. Qayta ro'yxatdan o'tish uchun /start ni bosing!`
-        );
-      } catch (err) {
-        console.error("Telegram notify failed:", err);
-      }
-    }
+    // Payment yoki user delete qilinadi
+    await deletePayment(userId);
+    await usersCollection.doc(String(userId)).delete();
 
-    res.json({ success: true, message: "User deleted and notification sent" });
+    // Botga xabar yuborish
+    await bot.sendMessage(
+      userId,
+      `Hurmatli ${name} ${surname}, siz tizimdan o'chirildingiz. Qayta ro'yxatdan o'tish uchun /start ni bosing!`
+    );
+
+    res.json({ success: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to delete user or send notification" });
+    res.status(500).json({ error: "Delete failed" });
   }
 });
 
