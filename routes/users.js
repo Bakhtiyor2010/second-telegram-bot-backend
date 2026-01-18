@@ -85,11 +85,10 @@ router.put("/:id", async (req, res) => {
 
 // DELETE — user o‘chirish va Telegram xabar
 router.delete("/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
-    if (!userId) return res.status(400).json({ error: "userId required" });
+  const { userId } = req.params;
+  if (!userId) return res.status(400).json({ error: "userId required" });
 
-    // 1️⃣ Foydalanuvchi documentini olish
+  try {
     const userRef = usersCollection.doc(String(userId));
     const userDoc = await userRef.get();
 
@@ -101,15 +100,15 @@ router.delete("/:userId", async (req, res) => {
     const name = userData.name || "";
     const surname = userData.surname || "";
 
-    // 2️⃣ Payment delete
+    // Payment delete
     const paymentRef = db.collection("payments").doc(String(userId));
     const paymentDoc = await paymentRef.get();
     if (paymentDoc.exists) await paymentRef.delete();
 
-    // 3️⃣ User delete
+    // User delete
     await userRef.delete();
 
-    // 4️⃣ Botga xabar
+    // Botga xabar alohida try/catch ichida
     try {
       await bot.sendMessage(
         userId,
@@ -119,10 +118,11 @@ router.delete("/:userId", async (req, res) => {
       console.error("Bot xabari yuborilmadi:", botErr);
     }
 
-    res.json({ success: true });
+    return res.json({ success: true });
+
   } catch (err) {
     console.error("DELETE USER ERROR:", err);
-    res.status(500).json({ error: "Delete failed" });
+    return res.status(500).json({ error: "Delete failed" });
   }
 });
 
