@@ -1,10 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const usersCollection = require("../models/User"); // faqat tasdiqlangan userlar
+const usersCollection = require("../models/User"); // faqat TASDIQLANGAN userlar
 const { addAttendance, getAllAttendance } = require("../models/attendanceService");
 const bot = require("../bot");
 
-// Attendance / Telegram xabar yuborish
+// 🔹 Attendance + Telegram xabar
 router.post("/", async (req, res) => {
   try {
     const { userId, status, message } = req.body;
@@ -43,7 +43,6 @@ Sana: ${new Date().toLocaleDateString("en-GB")}`;
     res.status(500).json({ error: "Server error" });
   }
 });
-
 
 // GET /api/attendance
 router.get("/", async (req, res) => {

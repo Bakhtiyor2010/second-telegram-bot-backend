@@ -24,7 +24,7 @@ async function addAttendance(userId, status, name, surname) {
     });
   }
 
-  return { date: new Date() };
+  return { date: new Date() }; // serverTimestamp o‘rniga JS date
 }
 
 // 🔹 Barcha attendancelarni olish
