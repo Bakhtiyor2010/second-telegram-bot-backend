@@ -15,14 +15,25 @@ router.post("/", async (req, res) => {
 
     for (const id of ids) {
       const userDoc = await usersCollection.doc(String(id)).get();
-      if (!userDoc.exists) continue;
+      if (!userDoc.exists) {
+        console.log("User not found for ID:", id);
+        continue;
+      }
 
       const u = userDoc.data();
-      if (!u.telegramId || u.status !== "active") continue;
+      if (!u.telegramId || u.status !== "active") {
+        console.log("Inactive user or no telegramId:", u);
+        continue;
+      }
 
       // 🔹 Attendance qo‘shish
       if (status) {
-        await addAttendance(u.id, status, u.name, u.surname);
+        console.log("Adding attendance for:", u.id, status);
+        try {
+          await addAttendance(u.id, status, u.name, u.surname);
+        } catch (err) {
+          console.error("Failed to add attendance for", u.id, err);
+        }
       }
 
       // 🔹 Telegram xabar
@@ -57,6 +68,18 @@ router.get("/", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to load attendance" });
+  }
+});
+
+// GET /api/attendance/:userId
+router.get("/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const history = await getUserAttendance(userId);
+    res.json({ userId, history });
+  } catch (err) {
+    console.error("Failed to get user attendance history:", err);
+    res.status(500).json({ error: "Failed to get attendance history" });
   }
 });
 
