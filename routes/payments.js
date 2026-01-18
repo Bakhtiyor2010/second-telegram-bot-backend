@@ -14,9 +14,11 @@ router.post("/paid", async (req, res) => {
 
     // 🔹 Telegramga xabar
     if (bot) {
+      const monthName = getMonthName(paidAt);
+      
       await bot.sendMessage(
         userId,
-        `Assalomu alaykum, hurmatli ${name} ${surname}!\nTo‘lov qabul qilindi (📅 ${formatDate(paidAt)})`
+        `Assalomu alaykum, hurmatli ${name} ${surname}!\n${monthName} oyi to‘lovi qabul qilindi (📅 ${formatDate(paidAt)})`
       );
     }
 
@@ -26,6 +28,16 @@ router.post("/paid", async (req, res) => {
     res.status(500).json({ error: err.message || "Paid failed" });
   }
 });
+
+// 🔹 Helper: oy nomi olish
+function getMonthName(date) {
+  const months = [
+    "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
+    "Iyul", "Avgust", "Sentabr", "Oktyabr", "Noyabr", "Dekabr"
+  ];
+  const d = new Date(date);
+  return months[d.getMonth()];
+}
 
 // 🔹 UNPAID
 router.post("/unpaid", async (req, res) => {

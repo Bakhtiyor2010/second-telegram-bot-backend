@@ -1,84 +1,55 @@
 const express = require("express");
 const router = express.Router();
-const usersCollection = require("../models/User"); // faqat TASDIQLANGAN userlar
-const { saveAttendance } = require("../models/attendanceService");
+const usersCollection = require("../models/User");
+const { addAttendance, getAllAttendance } = require("../models/attendanceService");
 const bot = require("../bot");
 const admin = require("firebase-admin");
 const db = admin.firestore();
 
-// Attendance / Telegram xabar yuborish
+// POST /api/attendance — mark attendance + bot xabar
 router.post("/", async (req, res) => {
   try {
     const { userId, status, message } = req.body;
+    if (!userId) return res.status(400).json({ error: "No users selected" });
 
-    if (!userId) {
-      return res.status(400).json({ error: "No users selected" });
-    }
-
-    // userId bitta yoki array bo‘lishi mumkin
     const ids = Array.isArray(userId) ? userId : [userId];
-
     let sentCount = 0;
 
     for (const id of ids) {
-      // 🔐 Faqat users collection tekshiriladi
       const userDoc = await usersCollection.doc(String(id)).get();
-
       if (!userDoc.exists) continue;
 
       const u = userDoc.data();
+      if (!u.telegramId || u.status !== "active") continue;
 
-      if (!u.telegramId || u.status !== "active") {
-        continue;
-      }
-
-      // 🔹 1. ATTENDANCE HISTORY SAQLASH (YANGI QO‘SHILDI)
+      // 🔹 Attendance history saqlash
       if (status) {
-        await saveAttendance({
-          userId: u.telegramId,
-          status,
-        });
+        await addAttendance(u.telegramId, status, u.name, u.surname);
       }
 
-      // 🔹 2. DEFAULT MESSAGE (ESKI LOGIKA)
+      // 🔹 Telegram xabar
       let msg = message;
-
       if (!msg && status) {
-        msg = `Assalomu alaykum, ${u.name || ""} ${u.surname || ""}.
-Bugun darsda ${
+        msg = `Assalomu alaykum, ${u.name || ""} ${u.surname || ""}.\nBugun darsda ${
           status === "present" ? "QATNASHDI" : "QATNASHMADI"
-        }.
-Sana: ${new Date().toLocaleDateString("en-GB")}`;
+        }.\nSana: ${new Date().toLocaleDateString("en-GB")}`;
       }
 
-      // 🔹 3. TELEGRAMGA YUBORISH
       await bot.sendMessage(u.telegramId, msg);
       sentCount++;
     }
 
-    res.json({
-      message: "Messages sent ✅",
-      sent: sentCount,
-    });
+    res.json({ message: "Messages sent ✅", sent: sentCount });
   } catch (err) {
     console.error("Attendance error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// GET /api/attendance
+// GET /api/attendance — barcha attendance
 router.get("/", async (req, res) => {
   try {
-    const snap = await db.collection("attendance").get();
-    const attendance = {};
-
-    snap.forEach(doc => {
-      const data = doc.data();
-      attendance[doc.id] = {
-        history: data.history || [] // array bo'lishi shart
-      };
-    });
-
+    const attendance = await getAllAttendance();
     res.json(attendance);
   } catch (err) {
     console.error(err);
