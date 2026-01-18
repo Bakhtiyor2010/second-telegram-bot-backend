@@ -3,14 +3,15 @@ const db = admin.firestore();
 
 // 🔹 Attendance qo‘shish
 async function addAttendance(userId, status, name, surname) {
-  console.log("addAttendance called with:", { userId, status, name, surname });
-  const date = admin.firestore.Timestamp.now();
+  if (!userId) throw new Error("Invalid userId");
+
+  const date = admin.firestore.Timestamp.now(); // Firestore Timestamp
   const docRef = db.collection("attendance").doc(userId);
+
+  const record = { status, name, surname, date };
 
   try {
     const doc = await docRef.get();
-    const record = { status, name, surname, date };
-
     if (doc.exists) {
       await docRef.update({
         history: admin.firestore.FieldValue.arrayUnion(record),
@@ -20,11 +21,10 @@ async function addAttendance(userId, status, name, surname) {
         history: [record],
       });
     }
-
-    return { date: date.toDate() };
+    return { date: date.toDate() }; // JS Date
   } catch (err) {
     console.error("Firestore error in addAttendance:", err);
-    throw err; // throw qilib frontendga yetkazamiz
+    throw err;
   }
 }
 
