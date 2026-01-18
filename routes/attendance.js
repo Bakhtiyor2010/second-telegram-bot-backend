@@ -1,10 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const usersCollection = require("../models/User"); 
+const usersCollection = require("../models/User"); // Firestore users
 const { addAttendance, getAllAttendance } = require("../models/attendanceService");
 const bot = require("../bot");
 
-// POST /api/attendance
+// 🔹 Attendance + Telegram xabar
 router.post("/", async (req, res) => {
   try {
     const { userId, status, message } = req.body;
@@ -14,12 +14,12 @@ router.post("/", async (req, res) => {
     let sentCount = 0;
 
     for (const id of ids) {
-      // 🔹 doc() emas, telegramId bilan qidirish
-      const userSnap = await usersCollection.where("telegramId", "==", id).get();
-      if (userSnap.empty) continue;
+      // 🔹 Firestore query orqali Telegram ID bo‘yicha topish
+      const snap = await usersCollection.where("id", "==", id).limit(1).get();
+      if (snap.empty) continue;
 
-      const uDoc = userSnap.docs[0];
-      const u = uDoc.data();
+      const doc = snap.docs[0];
+      const u = doc.data();
       if (!u.telegramId || u.status !== "active") continue;
 
       // 🔹 Attendance qo‘shish
@@ -30,21 +30,20 @@ router.post("/", async (req, res) => {
       // 🔹 Telegram xabar
       let msg = message;
       if (!msg && status) {
-        msg = `Assalomu alaykum, hurmatli ${u.name || ""} ${u.surname || ""}.
+        msg = `Assalomu alaykum, hurmatli ${u.name || ""} ${u.surname || ""}!
 Bugun darsda ${status === "present" ? "QATNASHDI" : "QATNASHMADI"}.
 Sana: ${new Date().toLocaleDateString("en-GB")}`;
       }
 
       try {
         await bot.sendMessage(u.telegramId, msg);
+        sentCount++;
       } catch (err) {
-        console.error(`Telegram error for ${u.telegramId}:`, err);
+        console.error(`Telegram xabar yuborilmadi: ${u.telegramId}`, err.message);
       }
-
-      sentCount++;
     }
 
-    res.json({ message: "Messages sent ✅", sent: sentCount });
+    res.json({ message: "Attendance saved and messages sent ✅", sent: sentCount });
   } catch (err) {
     console.error("Attendance error:", err);
     res.status(500).json({ error: "Server error" });
