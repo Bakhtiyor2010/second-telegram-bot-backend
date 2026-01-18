@@ -8,7 +8,6 @@ async function setPaid(userId, name, surname) {
   const doc = await docRef.get();
 
   if (doc.exists) {
-    // 🔹 eski history saqlanadi, yangi qo‘shiladi
     await docRef.update({
       paidAt,
       history: admin.firestore.FieldValue.arrayUnion({
@@ -18,7 +17,6 @@ async function setPaid(userId, name, surname) {
       }),
     });
   } else {
-    // 🔹 yangi document yaratish
     await docRef.set({
       paidAt,
       history: [{ name, surname, paidAt }],

@@ -14,20 +14,19 @@ router.post("/paid", async (req, res) => {
   try {
     const { userId, name, surname } = req.body;
     if (!userId) return res.status(400).json({ error: "userId required" });
+    if (!name || !surname) return res.status(400).json({ error: "name and surname required" });
 
-    // ✅ setPaid foydalanuvchi paidAt ni qaytaradi
-    const { paidAt } = await setPaid(userId, name, surname);
+    const { paidAt } = await setPaid(userId, name, surname); // ⚠ name va surname qo‘shildi
 
-    // 🔹 Telegram botga xabar
     await bot.sendMessage(
       userId,
-      `Assalomu alaykum, hurmatli ${name || ""} ${surname || ""}!\nTo‘lov qabul qilindi. (📅 ${formatDate(paidAt)})`
+      `Assalomu alaykum, hurmatli ${name || ""} ${surname || ""}!
+      To‘lov qabul qilindi. (📅 ${formatDate(paidAt)})`
     );
 
-    // ✅ Frontendga paidAt yuborish
     res.json({ success: true, paidAt });
   } catch (err) {
-    console.error(err);
+    console.error("PAID ERROR:", err);
     res.status(500).json({ error: "Paid failed" });
   }
 });
