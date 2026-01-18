@@ -87,6 +87,7 @@ router.put("/:id", async (req, res) => {
 router.delete("/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
+    if (!userId) return res.status(400).json({ error: "userId required" });
 
     // Foydalanuvchi ma'lumotini olish
     const userDoc = await usersCollection.doc(String(userId)).get();
@@ -94,19 +95,25 @@ router.delete("/:userId", async (req, res) => {
     const name = userData.name || "";
     const surname = userData.surname || "";
 
-    // Payment yoki user delete qilinadi
+    // Payment delete
     await deletePayment(userId);
-    await usersCollection.doc(String(userId)).delete();
 
-    // Botga xabar yuborish
-    await bot.sendMessage(
-      userId,
-      `Hurmatli ${name} ${surname}, siz tizimdan o'chirildingiz. Qayta ro'yxatdan o'tish uchun /start ni bosing!`
-    );
+    // User delete
+    if (userDoc.exists) {
+      await usersCollection.doc(String(userId)).delete();
+    }
+
+    // Botga xabar
+    if (bot) {
+      await bot.sendMessage(
+        userId,
+        `Hurmatli ${name} ${surname}, siz tizimdan o'chirildingiz. Qayta ro'yxatdan o'tish uchun /start ni bosing!`
+      );
+    }
 
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
+    console.error("DELETE USER ERROR:", err);
     res.status(500).json({ error: "Delete failed" });
   }
 });
