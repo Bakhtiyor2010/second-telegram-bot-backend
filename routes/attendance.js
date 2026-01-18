@@ -3,6 +3,8 @@ const router = express.Router();
 const usersCollection = require("../models/User"); // faqat TASDIQLANGAN userlar
 const { saveAttendance } = require("../models/attendanceService");
 const bot = require("../bot");
+const admin = require("firebase-admin");
+const db = admin.firestore();
 
 // Attendance / Telegram xabar yuborish
 router.post("/", async (req, res) => {

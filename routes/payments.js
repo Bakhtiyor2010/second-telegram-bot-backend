@@ -1,8 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const admin = require("firebase-admin");
-const db = admin.firestore();
-
 const {
   setPaid,
   setUnpaid,
@@ -18,15 +15,17 @@ router.post("/paid", async (req, res) => {
     const { userId, name, surname } = req.body;
     if (!userId) return res.status(400).json({ error: "userId required" });
 
-    const { paidAt } = await setPaid(userId);
+    // ✅ setPaid foydalanuvchi paidAt ni qaytaradi
+    const { paidAt } = await setPaid(userId, name, surname);
 
-await bot.sendMessage(
-  userId,
-  `Assalomu alaykum, hurmatli ${name || ""} ${surname || ""}!
-To‘lov qabul qilindi. (📅 ${formatDate(paidAt)})`
-);
+    // 🔹 Telegram botga xabar
+    await bot.sendMessage(
+      userId,
+      `Assalomu alaykum, hurmatli ${name || ""} ${surname || ""}!\nTo‘lov qabul qilindi. (📅 ${formatDate(paidAt)})`
+    );
 
-    res.json({ success: true });
+    // ✅ Frontendga paidAt yuborish
+    res.json({ success: true, paidAt });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Paid failed" });
@@ -36,31 +35,10 @@ To‘lov qabul qilindi. (📅 ${formatDate(paidAt)})`
 function formatDate(date) {
   const d = new Date(date);
   const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0"); // Oy 0 dan boshlanadi
+  const month = String(d.getMonth() + 1).padStart(2, "0");
   const year = d.getFullYear();
   return `${day}/${month}/${year}`;
 }
-
-// GET /api/payments
-router.get("/", async (req, res) => {
-  try {
-    const snap = await db.collection("payments").get();
-    const payments = {};
-
-    snap.forEach(doc => {
-      const data = doc.data();
-      payments[doc.id] = {
-        history: data.history || [], // array bo'lishi shart
-        latest: data.latest || null
-      };
-    });
-
-    res.json(payments);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to load payments" });
-  }
-});
 
 // 🔹 UNPAID
 router.post("/unpaid", async (req, res) => {
@@ -70,10 +48,10 @@ router.post("/unpaid", async (req, res) => {
 
     await setUnpaid(userId);
 
+    // 🔹 Telegram xabar
     await bot.sendMessage(
       userId,
-      `Hurmatli ${name || ""} ${surname || ""}!
-Iltimos, to‘lovni tezroq amalga oshiring.`
+      `Hurmatli ${name || ""} ${surname || ""}!\nIltimos, to‘lovni tezroq amalga oshiring.`
     );
 
     res.json({ success: true });
@@ -87,13 +65,11 @@ Iltimos, to‘lovni tezroq amalga oshiring.`
 router.delete("/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-
     await deletePayment(userId);
 
     await bot.sendMessage(
       userId,
-      `Hurmatli foydalanuvchi!
-To‘lov tarixingiz o‘chirildi.`
+      `Hurmatli foydalanuvchi!\nTo‘lov tarixingiz o‘chirildi.`
     );
 
     res.json({ success: true });
@@ -109,6 +85,7 @@ router.get("/", async (req, res) => {
     const payments = await getAllPayments();
     res.json(payments);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Failed to load payments" });
   }
 });
