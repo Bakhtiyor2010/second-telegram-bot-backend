@@ -3,23 +3,29 @@ const db = admin.firestore();
 
 // 🔹 Attendance qo‘shish
 async function addAttendance(userId, status, name, surname) {
-  const date = admin.firestore.Timestamp.now(); // Firestore Timestamp
+  console.log("addAttendance called with:", { userId, status, name, surname });
+  const date = admin.firestore.Timestamp.now();
   const docRef = db.collection("attendance").doc(userId);
-  const doc = await docRef.get();
 
-  const record = { status, name, surname, date };
+  try {
+    const doc = await docRef.get();
+    const record = { status, name, surname, date };
 
-  if (doc.exists) {
-    await docRef.update({
-      history: admin.firestore.FieldValue.arrayUnion(record),
-    });
-  } else {
-    await docRef.set({
-      history: [record],
-    });
+    if (doc.exists) {
+      await docRef.update({
+        history: admin.firestore.FieldValue.arrayUnion(record),
+      });
+    } else {
+      await docRef.set({
+        history: [record],
+      });
+    }
+
+    return { date: date.toDate() };
+  } catch (err) {
+    console.error("Firestore error in addAttendance:", err);
+    throw err; // throw qilib frontendga yetkazamiz
   }
-
-  return { date: date.toDate() }; // JS Date sifatida qaytaramiz
 }
 
 // 🔹 Barcha attendancelarni olish
