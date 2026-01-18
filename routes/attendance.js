@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const usersCollection = require("../models/User"); // faqat TASDIQLANGAN userlar
-const { addAttendance, getAllAttendance } = require("../models/attendanceService");
+const usersCollection = require("../models/User");
+const { addAttendance, getAllAttendance, getUserAttendance } = require("../models/attendanceService");
 const bot = require("../bot");
 
 // 🔹 Attendance + Telegram xabar
@@ -15,28 +15,17 @@ router.post("/", async (req, res) => {
 
     for (const id of ids) {
       const userDoc = await usersCollection.doc(String(id)).get();
-      if (!userDoc.exists) {
-        console.log("User not found for ID:", id);
-        continue;
-      }
+      if (!userDoc.exists) continue;
 
       const u = userDoc.data();
-      if (!u.telegramId || u.status !== "active") {
-        console.log("Inactive user or no telegramId:", u);
-        continue;
-      }
+      if (!u.telegramId || u.status !== "active") continue;
 
-      // 🔹 Attendance qo‘shish
+      // Attendance qo‘shish
       if (status) {
-        console.log("Adding attendance for:", u.id, status);
-        try {
-          await addAttendance(u.id, status, u.name, u.surname);
-        } catch (err) {
-          console.error("Failed to add attendance for", u.id, err);
-        }
+        await addAttendance(u.id, status, u.name, u.surname);
       }
 
-      // 🔹 Telegram xabar
+      // Telegram xabar
       let msg = message;
       if (!msg && status) {
         msg = `Assalomu alaykum, hurmatli ${u.name || ""} ${u.surname || ""}.\nBugun darsda ${
@@ -71,7 +60,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/attendance/:userId
+// 🔹 GET /api/attendance/:userId – bitta user history
 router.get("/:userId", async (req, res) => {
   try {
     const { userId } = req.params;

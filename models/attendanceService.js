@@ -53,20 +53,23 @@ async function getAllAttendance() {
   return attendance;
 }
 
-// 🔹 Bitta foydalanuvchi uchun attendance history olish
+// 🔹 Bitta user uchun history olish
 async function getUserAttendance(userId) {
   if (!userId) return [];
   const docRef = db.collection("attendance").doc(userId);
   const doc = await docRef.get();
   if (!doc.exists) return [];
-  
+
   const data = doc.data();
   return data.history
-    ? data.history.map(h => ({
+    ? data.history.map((h) => ({
         status: h.status,
         name: h.name,
         surname: h.surname,
-        date: h.date instanceof admin.firestore.Timestamp ? h.date.toDate() : new Date(h.date)
+        date:
+          h.date instanceof admin.firestore.Timestamp
+            ? h.date.toDate()
+            : new Date(h.date),
       }))
     : [];
 }
@@ -74,5 +77,5 @@ async function getUserAttendance(userId) {
 module.exports = {
   addAttendance,
   getAllAttendance,
-  getUserAttendance, // yangi qo‘shildi
+  getUserAttendance,
 };
