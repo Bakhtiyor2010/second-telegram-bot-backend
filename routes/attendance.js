@@ -20,9 +20,9 @@ router.post("/", async (req, res) => {
       const u = userDoc.data();
       if (!u.telegramId || u.status !== "active") continue;
 
-      // 🔹 Attendance qo‘shish (userId bo‘yicha)
+      // 🔹 Attendance qo‘shish
       if (status) {
-        await addAttendance(u.id, status, u.name, u.surname);
+        await addAttendance(u.telegramId, status, u.name, u.surname);
       }
 
       // 🔹 Telegram xabar
