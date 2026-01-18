@@ -1,51 +1,58 @@
 const admin = require("firebase-admin");
 const db = admin.firestore();
 
-async function setPaid(userId) {
-  const paidAtServer = admin.firestore.FieldValue.serverTimestamp();
-  const paidAtLocal = new Date();
+// 🔹 Payment qo‘shish
+async function setPaid(userId, name, surname) {
+  const paidAt = admin.firestore.FieldValue.serverTimestamp();
+  const docRef = db.collection("payments").doc(userId);
+  const doc = await docRef.get();
 
-  const endDate = new Date(paidAtLocal);
-  endDate.setMonth(endDate.getMonth() + 1);
+  if (doc.exists) {
+    // 🔹 eski history saqlanadi, yangi qo‘shiladi
+    await docRef.update({
+      paidAt,
+      history: admin.firestore.FieldValue.arrayUnion({
+        name,
+        surname,
+        paidAt,
+      }),
+    });
+  } else {
+    // 🔹 yangi document yaratish
+    await docRef.set({
+      paidAt,
+      history: [{ name, surname, paidAt }],
+    });
+  }
 
-  // 🔹 1. PAYMENT HISTORY (YANGI RECORD, OVERWRITE YO‘Q)
-  await db.collection("payment_history").add({
-    userId: String(userId),
-    status: "paid",
-    paidAt: admin.firestore.Timestamp.fromDate(paidAtLocal),
-    endDate: admin.firestore.Timestamp.fromDate(endDate),
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
-
-  // 🔹 2. HOZIRGI PAYMENT (OLD LOGIKA SAQLANDI)
-  await db.collection("payments").doc(String(userId)).set({
-    paidAt: paidAtServer,
-    createdAt: paidAtServer,
-    endDate: admin.firestore.Timestamp.fromDate(endDate),
-  });
-
-  return { paidAt: paidAtLocal };
+  return { paidAt: new Date() };
 }
 
+// 🔹 To‘lovni o‘chirish
 async function setUnpaid(userId) {
-  // ❗ historyga tegmaymiz
-  await db.collection("payments").doc(String(userId)).delete();
+  await db.collection("payments").doc(userId).delete();
 }
 
 async function deletePayment(userId) {
-  // ❗ historyga tegmaymiz
-  await db.collection("payments").doc(String(userId)).delete();
+  await db.collection("payments").doc(userId).delete();
 }
 
+// 🔹 Barcha paymentlarni olish
 async function getAllPayments() {
   const snap = await db.collection("payments").get();
   const payments = {};
 
-  snap.forEach(doc => {
+  snap.forEach((doc) => {
     const data = doc.data();
     payments[doc.id] = {
       paidAt: data.paidAt ? data.paidAt.toDate() : null,
-      endDate: data.endDate ? data.endDate.toDate() : null,
+      history: data.history
+        ? data.history.map((h) => ({
+            name: h.name,
+            surname: h.surname,
+            paidAt: h.paidAt ? h.paidAt.toDate() : null,
+          }))
+        : [],
     };
   });
 
