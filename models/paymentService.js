@@ -2,14 +2,14 @@ const admin = require("firebase-admin");
 const db = admin.firestore();
 
 async function setPaid(userId) {
-  const paidAt = new Date();
+  const paidAt = admin.firestore.FieldValue.serverTimestamp();
 
   await db.collection("payments").doc(userId).set({
     paidAt,
-    createdAt: new Date(),
+    createdAt: paidAt,
   });
 
-  return { paidAt };
+  return { paidAt: new Date() }; // Lokal JS date qaytaramiz
 }
 
 async function setUnpaid(userId) {

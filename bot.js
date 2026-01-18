@@ -73,18 +73,17 @@ bot.onText(/\/payment/, async (msg) => {
       return sendMessage(chatId, "Siz hali ro‘yxatdan o‘tmagansiz. /start ni bosing.");
     }
 
+    // Oxirgi to'lovni olish
     const paymentsSnap = await db.collection("payments")
-      .where("userId", "==", chatId)
-      .orderBy("createdAt", "desc")
-      .limit(1)
+      .doc(String(chatId))
       .get();
 
-    if (paymentsSnap.empty) {
+    if (!paymentsSnap.exists) {
       return sendMessage(chatId, "Sizda hali to‘lovlar qabul qilinmagan.");
     }
 
-    const payment = paymentsSnap.docs[0].data();
-    const paymentDate = payment.createdAt?.toDate ? payment.createdAt.toDate() : payment.createdAt;
+    const payment = paymentsSnap.data();
+    const paymentDate = payment.paidAt?.toDate ? payment.paidAt.toDate() : payment.paidAt;
 
     sendMessage(chatId, `Oxirgi to‘lov qabul qilingan sana: ${paymentDate.toLocaleDateString()}`);
   } catch (err) {
