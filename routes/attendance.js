@@ -64,4 +64,24 @@ Sana: ${new Date().toLocaleDateString("en-GB")}`;
   }
 });
 
+// GET /api/attendance
+router.get("/", async (req, res) => {
+  try {
+    const snap = await db.collection("attendance").get();
+    const attendance = {};
+
+    snap.forEach(doc => {
+      const data = doc.data();
+      attendance[doc.id] = {
+        history: data.history || [] // array bo'lishi shart
+      };
+    });
+
+    res.json(attendance);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to load attendance" });
+  }
+});
+
 module.exports = router;

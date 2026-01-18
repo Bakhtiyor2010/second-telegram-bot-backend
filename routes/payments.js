@@ -39,6 +39,27 @@ function formatDate(date) {
   return `${day}/${month}/${year}`;
 }
 
+// GET /api/payments
+router.get("/", async (req, res) => {
+  try {
+    const snap = await db.collection("payments").get();
+    const payments = {};
+
+    snap.forEach(doc => {
+      const data = doc.data();
+      payments[doc.id] = {
+        history: data.history || [], // array bo'lishi shart
+        latest: data.latest || null
+      };
+    });
+
+    res.json(payments);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to load payments" });
+  }
+});
+
 // 🔹 UNPAID
 router.post("/unpaid", async (req, res) => {
   try {
