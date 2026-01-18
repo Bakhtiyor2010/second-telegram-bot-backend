@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const usersCollection = require("../models/User");
-const { addAttendance, getAllAttendance, getUserAttendance } = require("../models/attendanceService");
+const usersCollection = require("../models/User"); // faqat TASDIQLANGAN userlar
+const { addAttendance, getAllAttendance } = require("../models/attendanceService");
 const bot = require("../bot");
 
 // 🔹 Attendance + Telegram xabar
@@ -20,12 +20,12 @@ router.post("/", async (req, res) => {
       const u = userDoc.data();
       if (!u.telegramId || u.status !== "active") continue;
 
-      // Attendance qo‘shish
+      // 🔹 Attendance qo‘shish (userId bo‘yicha)
       if (status) {
         await addAttendance(u.id, status, u.name, u.surname);
       }
 
-      // Telegram xabar
+      // 🔹 Telegram xabar
       let msg = message;
       if (!msg && status) {
         msg = `Assalomu alaykum, hurmatli ${u.name || ""} ${u.surname || ""}.\nBugun darsda ${
@@ -44,8 +44,8 @@ router.post("/", async (req, res) => {
 
     res.json({ message: "Messages sent ✅", sent: sentCount });
   } catch (err) {
-    console.error("Attendance route error:", err);
-    res.status(500).json({ error: "Server error", details: err.message });
+    console.error("Attendance error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -57,18 +57,6 @@ router.get("/", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to load attendance" });
-  }
-});
-
-// 🔹 GET /api/attendance/:userId – bitta user history
-router.get("/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const history = await getUserAttendance(userId);
-    res.json({ userId, history });
-  } catch (err) {
-    console.error("Failed to get user attendance history:", err);
-    res.status(500).json({ error: "Failed to get attendance history" });
   }
 });
 
