@@ -3,10 +3,9 @@ const express = require("express");
 const cors = require("cors");
 
 /* =======================
-   🔥 FIREBASE INIT (ENG MUHIM)
-   BUNI ENG TEPADA QOLDIRISH SHART
+   🔥 FIREBASE / DB INIT
 ======================= */
-require("./firebase"); // admin.initializeApp() shu yerda ishga tushadi
+require("./config/db");  // <--- Shu qator eng tepadagi bo‘lishi shart
 
 const app = express();
 
@@ -38,7 +37,7 @@ const pendingUsersRoutes = require("./routes/pendingUsers");
 // Groups
 const groupRoutes = require("./routes/groups");
 
-// Attendance (faqat approved users)
+// Attendance
 const attendanceRoutes = require("./routes/attendance");
 
 // Payments
@@ -84,4 +83,4 @@ app.listen(PORT, () => {
 /* =======================
    TELEGRAM BOT
 ======================= */
-require("./bot"); // bot.js ichida ham admin ishlatsa muammo bo‘lmaydi
+require("./bot"); // bot.js ni ishga tushiramiz
