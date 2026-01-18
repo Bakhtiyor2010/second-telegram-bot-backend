@@ -2,22 +2,39 @@ const admin = require("firebase-admin");
 const db = admin.firestore();
 
 async function setPaid(userId) {
-  const paidAt = admin.firestore.FieldValue.serverTimestamp();
+  const paidAtServer = admin.firestore.FieldValue.serverTimestamp();
+  const paidAtLocal = new Date();
 
-  await db.collection("payments").doc(userId).set({
-    paidAt,
-    createdAt: paidAt,
+  const endDate = new Date(paidAtLocal);
+  endDate.setMonth(endDate.getMonth() + 1);
+
+  // 🔹 1. PAYMENT HISTORY (YANGI RECORD, OVERWRITE YO‘Q)
+  await db.collection("payment_history").add({
+    userId: String(userId),
+    status: "paid",
+    paidAt: admin.firestore.Timestamp.fromDate(paidAtLocal),
+    endDate: admin.firestore.Timestamp.fromDate(endDate),
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-  return { paidAt: new Date() }; // Lokal JS date qaytaramiz
+  // 🔹 2. HOZIRGI PAYMENT (OLD LOGIKA SAQLANDI)
+  await db.collection("payments").doc(String(userId)).set({
+    paidAt: paidAtServer,
+    createdAt: paidAtServer,
+    endDate: admin.firestore.Timestamp.fromDate(endDate),
+  });
+
+  return { paidAt: paidAtLocal };
 }
 
 async function setUnpaid(userId) {
-  await db.collection("payments").doc(userId).delete();
+  // ❗ historyga tegmaymiz
+  await db.collection("payments").doc(String(userId)).delete();
 }
 
 async function deletePayment(userId) {
-  await db.collection("payments").doc(userId).delete();
+  // ❗ historyga tegmaymiz
+  await db.collection("payments").doc(String(userId)).delete();
 }
 
 async function getAllPayments() {
@@ -28,6 +45,7 @@ async function getAllPayments() {
     const data = doc.data();
     payments[doc.id] = {
       paidAt: data.paidAt ? data.paidAt.toDate() : null,
+      endDate: data.endDate ? data.endDate.toDate() : null,
     };
   });
 

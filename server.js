@@ -2,6 +2,12 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 
+/* =======================
+   🔥 FIREBASE INIT (ENG MUHIM)
+   BUNI ENG TEPADA QOLDIRISH SHART
+======================= */
+require("./firebase"); // admin.initializeApp() shu yerda ishga tushadi
+
 const app = express();
 
 /* =======================
@@ -78,4 +84,4 @@ app.listen(PORT, () => {
 /* =======================
    TELEGRAM BOT
 ======================= */
-require("./bot"); // <-- bot.js ni chaqiramiz va ishga tushiramiz
+require("./bot"); // bot.js ichida ham admin ishlatsa muammo bo‘lmaydi

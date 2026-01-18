@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const usersCollection = require("../models/User"); // faqat TASDIQLANGAN userlar
+const { saveAttendance } = require("../models/attendanceService");
 const bot = require("../bot");
 
 // Attendance / Telegram xabar yuborish
@@ -21,19 +22,23 @@ router.post("/", async (req, res) => {
       // 🔐 Faqat users collection tekshiriladi
       const userDoc = await usersCollection.doc(String(id)).get();
 
-      // Agar user mavjud bo‘lmasa (pending yoki fake)
-      if (!userDoc.exists) {
-        continue;
-      }
+      if (!userDoc.exists) continue;
 
       const u = userDoc.data();
 
-      // Qo‘shimcha xavfsizlik
       if (!u.telegramId || u.status !== "active") {
         continue;
       }
 
-      // 🔹 Default message
+      // 🔹 1. ATTENDANCE HISTORY SAQLASH (YANGI QO‘SHILDI)
+      if (status) {
+        await saveAttendance({
+          userId: u.telegramId,
+          status,
+        });
+      }
+
+      // 🔹 2. DEFAULT MESSAGE (ESKI LOGIKA)
       let msg = message;
 
       if (!msg && status) {
@@ -44,7 +49,7 @@ Bugun darsda ${
 Sana: ${new Date().toLocaleDateString("en-GB")}`;
       }
 
-      // Telegramga yuborish
+      // 🔹 3. TELEGRAMGA YUBORISH
       await bot.sendMessage(u.telegramId, msg);
       sentCount++;
     }
