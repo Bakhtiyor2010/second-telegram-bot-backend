@@ -16,8 +16,8 @@ router.post("/:telegramId", async (req, res) => {
     const data = snap.data();
 
     // 2️⃣ groupId va groupName ni pending_users dan olish
-    const groupId = data.selectedGroupId;
-    const groupName = data.groupName;
+    const groupId = data.groupId;
+const groupName = data.groupName;
 
     if (!groupId || !groupName) {
       return res.status(400).json({ message: "Pending user da groupId yoki groupName mavjud emas" });
