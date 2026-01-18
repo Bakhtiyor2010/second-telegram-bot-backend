@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { setPaid, setUnpaid, getAllPayments } = require("../models/paymentService");
+const { setPaid, setUnpaid, deletePayment, getAllPayments } = require("../models/paymentService");
 const bot = require("../bot");
 
 // 🔹 PAID
@@ -16,9 +16,7 @@ router.post("/paid", async (req, res) => {
     if (bot) {
       await bot.sendMessage(
         userId,
-        `Assalomu alaykum, hurmatli ${name} ${surname}!\nTo‘lov qabul qilindi (📅 ${formatDate(
-          paidAt
-        )})`
+        `Assalomu alaykum, hurmatli ${name} ${surname}!\nTo‘lov qabul qilindi (📅 ${formatDate(paidAt)})`
       );
     }
 
@@ -32,14 +30,46 @@ router.post("/paid", async (req, res) => {
 // 🔹 UNPAID
 router.post("/unpaid", async (req, res) => {
   try {
-    const { userId } = req.body;
+    const { userId, name, surname } = req.body;
     if (!userId) return res.status(400).json({ error: "userId required" });
 
     await setUnpaid(userId);
+
+    // 🔹 Telegramga xabar
+    if (bot) {
+      await bot.sendMessage(
+        userId,
+        `Hurmatli ${name || ""} ${surname || ""}!\nIltimos, to‘lovni tezroq amalga oshiring.`
+      );
+    }
+
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
+    console.error("UNPAID ERROR:", err);
     res.status(500).json({ error: err.message || "Unpaid failed" });
+  }
+});
+
+// 🔹 DELETE payment
+router.delete("/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, surname } = req.body; // frontenddan yuborilsa
+
+    await deletePayment(userId);
+
+    // 🔹 Telegramga xabar
+    if (bot) {
+      await bot.sendMessage(
+        userId,
+        `Hurmatli ${name || ""} ${surname || ""}!\nTo‘lov tarixingiz o‘chirildi.`
+      );
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("DELETE ERROR:", err);
+    res.status(500).json({ error: err.message || "Delete failed" });
   }
 });
 
