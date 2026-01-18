@@ -64,6 +64,35 @@ bot.onText(/\/delete/, async (msg) => {
   }
 });
 
+// /payment komandasi
+bot.onText(/\/payment/, async (msg) => {
+  const chatId = msg.chat.id;
+  try {
+    const userSnap = await usersCollection.doc(String(chatId)).get();
+    if (!userSnap.exists) {
+      return sendMessage(chatId, "Siz hali ro‘yxatdan o‘tmagansiz. /start ni bosing.");
+    }
+
+    const paymentsSnap = await db.collection("payments")
+      .where("userId", "==", chatId)
+      .orderBy("createdAt", "desc")
+      .limit(1)
+      .get();
+
+    if (paymentsSnap.empty) {
+      return sendMessage(chatId, "Sizda hali to‘lovlar qabul qilinmagan.");
+    }
+
+    const payment = paymentsSnap.docs[0].data();
+    const paymentDate = payment.createdAt?.toDate ? payment.createdAt.toDate() : payment.createdAt;
+
+    sendMessage(chatId, `Oxirgi to‘lov qabul qilingan sana: ${paymentDate.toLocaleDateString()}`);
+  } catch (err) {
+    console.error(err);
+    sendMessage(chatId, "To‘lov ma’lumotlarini olishda xato yuz berdi.");
+  }
+});
+
 // callback query
 bot.on("callback_query", async (query) => {
   const chatId = query.message.chat.id;
