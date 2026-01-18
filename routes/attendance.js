@@ -1,23 +1,27 @@
 const express = require("express");
 const router = express.Router();
-const usersCollection = require("../models/User"); // faqat TASDIQLANGAN userlar
+const usersCollection = require("../models/User"); // tasdiqlangan userlar
 const { addAttendance, getAllAttendance } = require("../models/attendanceService");
 const bot = require("../bot");
 
-// 🔹 Attendance + Telegram xabar
+// ====================== POST /api/attendance ======================
+// Attendance qo‘shish + Telegram xabar
 router.post("/", async (req, res) => {
   try {
-    const { userId, status, message } = req.body;
+    const { userId, status, message, name, surname } = req.body;
+
     if (!userId) return res.status(400).json({ error: "No users selected" });
 
     const ids = Array.isArray(userId) ? userId : [userId];
     let sentCount = 0;
 
     for (const id of ids) {
+      // Backend telegramId bo‘yicha ishlaydi, frontend endi telegramId yuboradi
       const userDoc = await usersCollection.doc(String(id)).get();
       if (!userDoc.exists) continue;
 
       const u = userDoc.data();
+
       if (!u.telegramId || u.status !== "active") continue;
 
       // 🔹 Attendance qo‘shish
@@ -25,7 +29,7 @@ router.post("/", async (req, res) => {
         await addAttendance(u.telegramId, status, u.name, u.surname);
       }
 
-      // 🔹 Telegram xabar
+      // 🔹 Telegram xabar tayyorlash
       let msg = message;
       if (!msg && status) {
         msg = `Assalomu alaykum, hurmatli ${u.name || ""} ${u.surname || ""}.
@@ -33,18 +37,23 @@ Bugun darsda ${status === "present" ? "QATNASHDI" : "QATNASHMADI"}.
 Sana: ${new Date().toLocaleDateString("en-GB")}`;
       }
 
-      await bot.sendMessage(u.telegramId, msg);
-      sentCount++;
+      // 🔹 Telegramga yuborish
+      try {
+        await bot.sendMessage(u.telegramId, msg);
+        sentCount++;
+      } catch (err) {
+        console.error(`Telegram error for ${u.telegramId}:`, err);
+      }
     }
 
-    res.json({ message: "Messages sent ✅", sent: sentCount });
+    res.json({ message: "Attendance saved ✅", sent: sentCount });
   } catch (err) {
     console.error("Attendance error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// GET /api/attendance
+// ====================== GET /api/attendance ======================
 router.get("/", async (req, res) => {
   try {
     const attendance = await getAllAttendance();
