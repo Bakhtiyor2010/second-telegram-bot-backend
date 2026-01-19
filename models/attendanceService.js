@@ -3,32 +3,43 @@ const db = admin.firestore();
 
 // 🔹 Attendance qo‘shish
 async function addAttendance(telegramId, status, name, surname) {
-  if (!telegramId) throw new Error("Invalid telegramId");
-
-  const timestamp = admin.firestore.Timestamp.now();
-
-  const record = {
-    status,
-    name,
-    surname,
-    date: timestamp,
-  };
-
-  const docRef = db.collection("attendance").doc(String(telegramId));
-
-  const doc = await docRef.get();
-
-  if (doc.exists) {
-    await docRef.update({
-      history: admin.firestore.FieldValue.arrayUnion(record),
-    });
-  } else {
-    await docRef.set({
-      history: [record],
-    });
+  if (!telegramId || !status) {
+    throw new Error("Invalid attendance data");
   }
 
-  return timestamp.toDate();
+  // 🔑 BUGUNGI SANA (faqat kun)
+  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+  const docRef = db.collection("attendance").doc(String(telegramId));
+  const doc = await docRef.get();
+
+  let history = [];
+
+  if (doc.exists && Array.isArray(doc.data().history)) {
+    history = doc.data().history;
+  }
+
+  const todayIndex = history.findIndex(h => h.day === today);
+
+  const record = {
+    day: today,              // 🔑 unique key
+    status,
+    name: name || "",
+    surname: surname || "",
+    updatedAt: admin.firestore.Timestamp.now(),
+  };
+
+  if (todayIndex !== -1) {
+    // 🔄 BUGUN BOR → UPDATE
+    history[todayIndex] = record;
+  } else {
+    // ➕ BUGUN YO‘Q → PUSH
+    history.push(record);
+  }
+
+  await docRef.set({ history }, { merge: true });
+
+  return record;
 }
 
 // 🔹 Barcha attendancelarni olish
