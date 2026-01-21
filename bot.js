@@ -5,6 +5,9 @@ const groupsCollection = require("./models/Group");
 const admin = require("firebase-admin");
 const db = admin.firestore();
 
+const CHANNEL_ID = -1002130557970;
+const CHANNEL_LINK = "https://t.me/Fayzullaev_IELTS_School";
+
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 const userStates = {}; // ChatID bo'yicha foydalanuvchi state
 
@@ -17,33 +20,51 @@ async function sendMessage(chatId, text, options = {}) {
   }
 }
 
+async function isSubscribed(userId) {
+  try {
+    const member = await bot.getChatMember(CHANNEL_ID, userId);
+    return ["member", "administrator", "creator"].includes(member.status);
+  } catch (err) {
+    return false;
+  }
+}
+
 // /start komandasi
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
-  try {
-    const snapshot = await usersCollection.doc(String(chatId)).get();
-    if (snapshot.exists)
-      return sendMessage(
-        chatId,
-        "Siz allaqachon ro‘yxatdan o‘tgan ekansiz. /update bilan yangilashingiz mumkin.\n\nВы уже зарегистрированы. Вы можете обновить данные с помощью команды /update.",
-      );
 
-    userStates[chatId] = { step: "ask_name" };
-    await sendMessage(
+  // 🔹 Kanal a’zo tekshiruvi
+  if (!(await isSubscribed(chatId))) {
+    return sendMessage(
       chatId,
-      "Assalomu alaykum! Fayzullaev IELTS School botiga xush kelibsiz!\n\nЗдравствуйте! Добро пожаловать в бот Fayzullaev IELTS School!",
-    );
-    await sendMessage(
-      chatId,
-      "Iltimos, ismingizni kiriting:\n\nПожалуйста, введите ваше имя:",
-    );
-  } catch (err) {
-    console.error(err);
-    sendMessage(
-      chatId,
-      "Server xatosi yuz berdi.\n\nПроизошла ошибка на сервере.",
+      `❗ Botdan foydalanish uchun kanalga a’zo bo‘ling:\n👉 ${CHANNEL_LINK}`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "✅ A’zo bo‘ldim", callback_data: "check_sub" }],
+          ],
+        },
+      },
     );
   }
+
+  // 🔹 Kanal a’zo bo‘lsa, registration davom etadi
+  const snapshot = await usersCollection.doc(String(chatId)).get();
+  if (snapshot.exists)
+    return sendMessage(
+      chatId,
+      "Siz allaqachon ro‘yxatdan o‘tgan ekansiz. /update bilan yangilashingiz mumkin.\n\nВы уже зарегистрированы. Вы можете обновить данные с помощью команды /update.",
+    );
+
+  userStates[chatId] = { step: "ask_name" };
+  await sendMessage(
+    chatId,
+    "Assalomu alaykum! Fayzullaev IELTS School botiga xush kelibsiz!\n\nЗдравствуйте! Добро пожаловать в бот Fayzullaev IELTS School!",
+  );
+  await sendMessage(
+    chatId,
+    "Iltimos, ismingizni kiriting:\n\nПожалуйста, введите ваше имя:",
+  );
 });
 
 // /update komandasi
@@ -153,6 +174,22 @@ bot.on("callback_query", async (query) => {
   const chatId = query.message.chat.id;
   const state = userStates[chatId];
   if (!state) return bot.answerCallbackQuery(query.id);
+
+  // 🔹 Kanal a’zo tekshiruvi tugmasi
+  if (query.data === "check_sub") {
+    if (!(await isSubscribed(chatId))) {
+      return bot.answerCallbackQuery(query.id, {
+        text: "❌ Siz hali kanalga a’zo bo‘lmagansiz",
+        show_alert: true,
+      });
+    }
+
+    await bot.answerCallbackQuery(query.id);
+    return sendMessage(
+      chatId,
+      "✅ Rahmat! Endi botdan foydalanishingiz mumkin.\n\n/start ni bosing.",
+    );
+  }
 
   try {
     const groupId = query.data;
