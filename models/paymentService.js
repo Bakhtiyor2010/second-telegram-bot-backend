@@ -9,21 +9,39 @@ async function setPaid(userId, name, surname) {
   const paidAt = admin.firestore.Timestamp.now();
   const docRef = db.collection("payments").doc(userId);
   const doc = await docRef.get();
+  const today = new Date();
+  const dayKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`; // YYYY-M-D
 
   const record = {
     status: "paid",
     name,
     surname,
     date: paidAt,
+    dayKey,
   };
 
   if (doc.exists) {
-    await docRef.update({
-      currentStatus: "paid",
-      paidAt,
-      unpaidFrom: null,
-      history: admin.firestore.FieldValue.arrayUnion(record),
-    });
+    const history = doc.data().history || [];
+    const existsIndex = history.findIndex((h) => h.dayKey === dayKey);
+
+    if (existsIndex >= 0) {
+      // agar bugungi sana recordi bor bo‘lsa, uni yangilaymiz
+      history[existsIndex] = record;
+      await docRef.update({
+        history,
+        currentStatus: "paid",
+        paidAt,
+        unpaidFrom: null,
+      });
+    } else {
+      // yo‘q bo‘lsa arrayUnion bilan qo‘shamiz
+      await docRef.update({
+        history: admin.firestore.FieldValue.arrayUnion(record),
+        currentStatus: "paid",
+        paidAt,
+        unpaidFrom: null,
+      });
+    }
   } else {
     await docRef.set({
       currentStatus: "paid",
@@ -42,27 +60,41 @@ async function setUnpaid(userId) {
 
   const docRef = db.collection("payments").doc(userId);
   const doc = await docRef.get();
-
   const unpaidAt = admin.firestore.Timestamp.now();
+  const today = new Date();
+  const dayKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
 
   const record = {
     status: "unpaid",
     date: unpaidAt,
+    dayKey,
   };
 
   if (doc.exists) {
-    await docRef.update({
-      currentStatus: "unpaid",
-      unpaidFrom: unpaidAt,
-      paidAt: null,
-      history: admin.firestore.FieldValue.arrayUnion(record),
-    });
+    const history = doc.data().history || [];
+    const existsIndex = history.findIndex((h) => h.dayKey === dayKey);
+
+    if (existsIndex >= 0) {
+      history[existsIndex] = record;
+      await docRef.update({
+        history,
+        currentStatus: "unpaid",
+        paidAt: null,
+        unpaidFrom: unpaidAt,
+      });
+    } else {
+      await docRef.update({
+        history: admin.firestore.FieldValue.arrayUnion(record),
+        currentStatus: "unpaid",
+        paidAt: null,
+        unpaidFrom: unpaidAt,
+      });
+    }
   } else {
-    // Agar hech qachon paid bo‘lmagan bo‘lsa ham
     await docRef.set({
       currentStatus: "unpaid",
-      unpaidFrom: unpaidAt,
       paidAt: null,
+      unpaidFrom: unpaidAt,
       history: [record],
     });
   }
