@@ -10,16 +10,25 @@ async function setPaid(userId, name, surname) {
   const docRef = db.collection("payments").doc(userId);
   const doc = await docRef.get();
 
-  const record = { name, surname, paidAt };
+  const record = {
+    status: "paid",
+    name,
+    surname,
+    date: paidAt,
+  };
 
   if (doc.exists) {
     await docRef.update({
+      currentStatus: "paid",
       paidAt,
+      unpaidFrom: null,
       history: admin.firestore.FieldValue.arrayUnion(record),
     });
   } else {
     await docRef.set({
+      currentStatus: "paid",
       paidAt,
+      unpaidFrom: null,
       history: [record],
     });
   }
@@ -27,10 +36,38 @@ async function setPaid(userId, name, surname) {
   return { paidAt: paidAt.toDate() };
 }
 
-// 🔹 To‘lovni o‘chirish
+// 🔹 So'ngi to‘lovni o‘chirish
 async function setUnpaid(userId) {
   if (!userId) throw new Error("userId required");
-  await db.collection("payments").doc(userId).delete();
+
+  const docRef = db.collection("payments").doc(userId);
+  const doc = await docRef.get();
+
+  const unpaidAt = admin.firestore.Timestamp.now();
+
+  const record = {
+    status: "unpaid",
+    date: unpaidAt,
+  };
+
+  if (doc.exists) {
+    await docRef.update({
+      currentStatus: "unpaid",
+      unpaidFrom: unpaidAt,
+      paidAt: null,
+      history: admin.firestore.FieldValue.arrayUnion(record),
+    });
+  } else {
+    // Agar hech qachon paid bo‘lmagan bo‘lsa ham
+    await docRef.set({
+      currentStatus: "unpaid",
+      unpaidFrom: unpaidAt,
+      paidAt: null,
+      history: [record],
+    });
+  }
+
+  return { unpaidAt: unpaidAt.toDate() };
 }
 
 // 🔹 Barcha paymentlarni olish
@@ -44,9 +81,10 @@ async function getAllPayments() {
       paidAt: data.paidAt ? data.paidAt.toDate() : null,
       history: data.history
         ? data.history.map((h) => ({
-            name: h.name,
-            surname: h.surname,
-            paidAt: h.paidAt ? h.paidAt.toDate() : null,
+            status: h.status,
+            name: h.name || null,
+            surname: h.surname || null,
+            date: h.date ? h.date.toDate() : null,
           }))
         : [],
     };
