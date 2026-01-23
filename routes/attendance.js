@@ -1,95 +1,76 @@
-const admin = require("firebase-admin");
-const db = admin.firestore();
+const express = require("express");
+const router = express.Router();
+const { addAttendance, getAllAttendance } = require("../models/attendanceService");
+const usersCollection = require("../models/User");
+const bot = require("../bot");
 
-// 🔹 Attendance qo‘shish (bugungi sana uchun oxirgi holat saqlanadi)
-async function addAttendance(
-  telegramId,
-  status,
-  name,
-  surname,
-  phone,
-  groupName,
-  adminName // <-- admin username shu yerda keladi
-) {
-  if (!telegramId || !status) throw new Error("Invalid attendance data");
+// POST /api/attendance
+router.post("/", async (req, res) => {
+  try {
+    const { userId, status, message, adminUsername } = req.body; // <-- frontend dan keladi
 
-  const today = new Date().toISOString().split("T")[0];
-  const docRef = db.collection("attendance").doc(String(telegramId));
-  const doc = await docRef.get();
+    if (!userId) return res.status(400).json({ error: "No users selected" });
 
-  let history = [];
-  if (doc.exists && Array.isArray(doc.data().history)) history = doc.data().history;
+    const ids = Array.isArray(userId) ? userId : [userId];
+    let sentCount = 0;
 
-  const todayIndex = history.findIndex((h) => h.day === today);
+    for (const id of ids) {
+      const userDoc = await usersCollection.doc(String(id)).get();
+      if (!userDoc.exists) continue;
 
-  const record = {
-    day: today,
-    status,
-    name,
-    surname,
-    phone,
-    groupName,
-    admin: adminName || "Admin", // <-- default Admin emas, POST da kelgan username
-    updatedAt: admin.firestore.Timestamp.now(),
-  };
+      const u = userDoc.data();
+      if (u.status !== "active" || !u.telegramId) continue;
 
-  if (todayIndex !== -1) history[todayIndex] = record;
-  else history.push(record);
+      // Attendance qo‘shish
+      if (status) {
+        await addAttendance(
+          u.telegramId,
+          status,
+          u.name || "",
+          u.surname || "",
+          u.phone || "",
+          u.groupName || "",
+          adminUsername || "Admin" // <-- backend da saqlanadi
+        );
+      }
 
-  await docRef.set({ history }, { merge: true });
-  return record;
-}
+      // Telegram xabar
+      let msg = message;
+      if (!msg && status) {
+        msg = `Assalomu alaykum, ${u.name || ""} ${u.surname || ""} bugun darsda ${
+          status === "present" ? "QATNASHDI" : "QATNASHMADI"
+        } (Sana: ${new Date().toLocaleDateString("en-GB")}).\n\n
+Здравствуйте, ${u.name || ""} ${u.surname || ""}, сегодня на занятии вы ${
+          status === "present" ? "ПРИСУТСТВОВАЛИ" : "НЕ ПРИСУТСТВОВАЛИ"
+        } (Дата: ${new Date().toLocaleDateString("en-GB")}).`;
+      }
 
-async function getAllAttendance() {
-  const snap = await db.collection("attendance").get();
-  const result = [];
+      if (!msg) continue;
 
-  snap.forEach((doc) => {
-    const data = doc.data();
-    if (!data.history) return;
+      try {
+        await bot.sendMessage(u.telegramId, msg);
+        sentCount++;
+      } catch (err) {
+        console.error("Telegram message failed:", err);
+      }
+    }
 
-    data.history.forEach((h) => {
-      result.push({
-        telegramId: doc.id,
-        name: h.name,
-        surname: h.surname,
-        phone: h.phone || "",
-        groupName: h.groupName || "",
-        admin: h.admin || "", // <-- admin username ko‘rinadi
-        status: h.status,
-        date: h.updatedAt instanceof admin.firestore.Timestamp
-          ? h.updatedAt.toDate()
-          : new Date(h.updatedAt),
-      });
-    });
-  });
+    res.json({ message: "Attendance processed", sent: sentCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
-  return result;
-}
+// GET /api/attendance
+router.get("/", async (req, res) => {
+  try {
+    const history = await getAllAttendance();
+    res.json(history); // <-- admin username shu yerda ko‘rinadi
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to load attendance" });
+  }
+});
 
-// 🔹 Bitta foydalanuvchi uchun history olish
-async function getUserAttendance(userId) {
-  if (!userId) return [];
-  const docRef = db.collection("attendance").doc(userId);
-  const doc = await docRef.get();
-  if (!doc.exists) return [];
-
-  const data = doc.data();
-  return data.history
-    ? data.history.map((h) => ({
-        status: h.status,
-        name: h.name,
-        surname: h.surname,
-        date:
-          h.updatedAt instanceof admin.firestore.Timestamp
-            ? h.updatedAt.toDate()
-            : new Date(h.updatedAt),
-      }))
-    : [];
-}
-
-module.exports = {
-  addAttendance,
-  getAllAttendance,
-  getUserAttendance,
-};
+module.exports = router;
