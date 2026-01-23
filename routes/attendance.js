@@ -3,12 +3,11 @@ const router = express.Router();
 const { addAttendance, getAllAttendance } = require("../models/attendanceService");
 const usersCollection = require("../models/User");
 const bot = require("../bot");
-const authMiddleware = require("../middleware/authMiddleware");
 
 // POST /api/attendance
-router.post("/", authMiddleware, async (req, res) => {
+router.post("/", async (req, res) => {
   try {
-    const { userId, status, message } = req.body;
+    const { userId, status, message, adminUsername } = req.body; // <-- shu yerda admin username olamiz
     if (!userId) return res.status(400).json({ error: "No users selected" });
 
     const ids = Array.isArray(userId) ? userId : [userId];
@@ -30,14 +29,14 @@ router.post("/", authMiddleware, async (req, res) => {
           u.surname || "",
           u.phone || "",
           u.groupName || "",
-          req.user.username  // <-- haqiqat admin username
+          adminUsername || "Admin" // <-- shu yerda admin username saqlanadi
         );
       }
 
       // Telegram xabar
       let msg = message;
       if (!msg && status) {
-       msg = `Assalomu alaykum, ${u.name || ""} ${u.surname || ""} bugun darsda ${
+        msg = `Assalomu alaykum, ${u.name || ""} ${u.surname || ""} bugun darsda ${
           status === "present" ? "QATNASHDI" : "QATNASHMADI"
         } (Sana: ${new Date().toLocaleDateString("en-GB")}).
         
@@ -57,7 +56,7 @@ router.post("/", authMiddleware, async (req, res) => {
 });
 
 // GET /api/attendance
-router.get("/", authMiddleware, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const history = await getAllAttendance();
     res.json(history);

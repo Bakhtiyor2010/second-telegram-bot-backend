@@ -9,12 +9,11 @@ async function addAttendance(
   surname,
   phone,
   groupName,
-  adminName
+  adminName // <-- admin username shu yerda keladi
 ) {
   if (!telegramId || !status) throw new Error("Invalid attendance data");
 
   const today = new Date().toISOString().split("T")[0];
-
   const docRef = db.collection("attendance").doc(String(telegramId));
   const doc = await docRef.get();
 
@@ -30,7 +29,7 @@ async function addAttendance(
     surname,
     phone,
     groupName,
-    admin: adminName,  // <-- haqiqat admin username
+    admin: adminName || "Admin", // <-- default Admin emas, POST da kelgan username
     updatedAt: admin.firestore.Timestamp.now(),
   };
 
@@ -56,7 +55,7 @@ async function getAllAttendance() {
         surname: h.surname,
         phone: h.phone || "",
         groupName: h.groupName || "",
-        admin: h.admin || "",
+        admin: h.admin || "", // <-- admin username ko‘rinadi
         status: h.status,
         date: h.updatedAt instanceof admin.firestore.Timestamp
           ? h.updatedAt.toDate()
