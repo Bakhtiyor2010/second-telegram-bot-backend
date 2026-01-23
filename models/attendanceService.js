@@ -13,7 +13,7 @@ async function addAttendance(
 ) {
   if (!telegramId || !status) throw new Error("Invalid attendance data");
 
-  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  const today = new Date().toISOString().split("T")[0];
 
   const docRef = db.collection("attendance").doc(String(telegramId));
   const doc = await docRef.get();
@@ -22,7 +22,6 @@ async function addAttendance(
   if (doc.exists && Array.isArray(doc.data().history))
     history = doc.data().history;
 
-  // 🔹 Bugungi sana mavjudmi tekshirish
   const todayIndex = history.findIndex((h) => h.day === today);
 
   const record = {
@@ -32,13 +31,14 @@ async function addAttendance(
     surname,
     phone,
     groupName,
-    admin: adminName,
+    admin: adminName,  // <-- admin username saqlanadi
     updatedAt: admin.firestore.Timestamp.now(),
   };
 
   if (todayIndex !== -1)
-    history[todayIndex] = record; // mavjud bo‘lsa update
-  else history.push(record); // yo‘q bo‘lsa push
+    history[todayIndex] = record;
+  else
+    history.push(record);
 
   await docRef.set({ history }, { merge: true });
 
@@ -57,12 +57,12 @@ async function getAllAttendance() {
     data.history.forEach((h) => {
       result.push({
         telegramId: doc.id,
-        name: h.name,
-        surname: h.surname,
-        phone: h.phone || "",
-        groupName: h.groupName || "",
-        admin: h.admin || "",
-        status: h.status,
+  name: h.name,
+  surname: h.surname,
+  phone: h.phone || "",
+  groupName: h.groupName || "",
+  admin: h.admin || "",
+  status: h.status,
         date:
           h.updatedAt instanceof admin.firestore.Timestamp
             ? h.updatedAt.toDate()
