@@ -1,7 +1,7 @@
 const admin = require("firebase-admin");
 const db = admin.firestore();
 
-// 🔹 Attendance qo‘shish (bugungi sana uchun oxirgi holat saqlanadi)
+// 🔹 Attendance qo‘shish
 async function addAttendance(
   telegramId,
   status,
@@ -9,7 +9,7 @@ async function addAttendance(
   surname,
   phone,
   groupName,
-  adminName // <-- admin username shu yerda keladi
+  adminName // <-- shu yerda admin username keladi
 ) {
   if (!telegramId || !status) throw new Error("Invalid attendance data");
 
@@ -20,7 +20,7 @@ async function addAttendance(
   let history = [];
   if (doc.exists && Array.isArray(doc.data().history)) history = doc.data().history;
 
-  const todayIndex = history.findIndex((h) => h.day === today);
+  const todayIndex = history.findIndex(h => h.day === today);
 
   const record = {
     day: today,
@@ -29,7 +29,7 @@ async function addAttendance(
     surname,
     phone,
     groupName,
-    admin: adminName || "Admin", // <-- default Admin emas, POST da kelgan username
+    admin: adminName || "Admin", // <-- POST dan kelgan admin username
     updatedAt: admin.firestore.Timestamp.now(),
   };
 
@@ -40,22 +40,23 @@ async function addAttendance(
   return record;
 }
 
+// 🔹 Barcha attendancelarni olish
 async function getAllAttendance() {
   const snap = await db.collection("attendance").get();
   const result = [];
 
-  snap.forEach((doc) => {
+  snap.forEach(doc => {
     const data = doc.data();
     if (!data.history) return;
 
-    data.history.forEach((h) => {
+    data.history.forEach(h => {
       result.push({
         telegramId: doc.id,
         name: h.name,
         surname: h.surname,
         phone: h.phone || "",
         groupName: h.groupName || "",
-        admin: h.admin || "", // <-- admin username ko‘rinadi
+        admin: h.admin || "", // <-- shu yerda frontend-da admin ko‘rinadi
         status: h.status,
         date: h.updatedAt instanceof admin.firestore.Timestamp
           ? h.updatedAt.toDate()
@@ -67,7 +68,7 @@ async function getAllAttendance() {
   return result;
 }
 
-// 🔹 Bitta foydalanuvchi uchun history olish
+// 🔹 Bitta foydalanuvchi uchun history
 async function getUserAttendance(userId) {
   if (!userId) return [];
   const docRef = db.collection("attendance").doc(userId);
@@ -76,7 +77,7 @@ async function getUserAttendance(userId) {
 
   const data = doc.data();
   return data.history
-    ? data.history.map((h) => ({
+    ? data.history.map(h => ({
         status: h.status,
         name: h.name,
         surname: h.surname,
