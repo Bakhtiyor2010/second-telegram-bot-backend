@@ -15,6 +15,7 @@ router.post("/", async (req, res) => {
       username,
       selectedGroupId,
     } = req.body;
+
     if (!telegramId || !firstName)
       return res
         .status(400)
@@ -40,28 +41,29 @@ router.post("/", async (req, res) => {
       groupName = groupDoc.exists ? groupDoc.data().name : "—";
     }
 
-    // ✅ Data mapping to‘g‘ri qilindi
+    // ✅ Safe add to users collection with merge to preserve old fields if exist
     await db
       .collection("users")
       .doc(String(telegramId))
-      .set({
-        telegramId: telegramId,
-        name: firstName || "", // data.firstName → firstName
-        surname: lastName || "", // data.lastName → lastName
-        phone: phone || "",
-        username: username || "",
-        groupId: selectedGroupId || "",
-        groupName: groupName || "",
-        status: "active",
-        approvedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      .set(
+        {
+          telegramId: telegramId,
+          name: firstName || "",
+          surname: lastName || "",
+          phone: phone || "",
+          username: username || "",
+          groupId: selectedGroupId || "",
+          groupName: groupName || "",
+          status: "active",
+          approvedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
 
     try {
       await bot.sendMessage(
         telegramId,
-        `Hurmatli ${firstName}, siz ro'yxatdan o'tdingiz. Admin tasdig‘ini kuting.
-        
-Уважаемый(ая) ${firstName}, вы зарегистрировались. Дождитесь подтверждения от администратора.`,
+        `Hurmatli ${firstName}, siz ro'yxatdan o'tdingiz. Admin tasdig‘ini kuting.\n\nУважаемый(ая) ${firstName}, вы зарегистрировались. Дождитесь подтверждения от администратора.`,
       );
     } catch (err) {
       console.error("Telegram notify failed:", err);
@@ -90,20 +92,17 @@ router.get("/", async (req, res) => {
   }
 });
 
-// PUT — user info yangilash
+// PUT — user info yangilash (safe merge)
 router.put("/:id", async (req, res) => {
   try {
     const userId = String(req.params.id);
     const userRef = db.collection("users").doc(userId);
 
-    // 🔹 Eski ma’lumot
     const oldDoc = await userRef.get();
-    if (!oldDoc.exists) {
+    if (!oldDoc.exists)
       return res.status(404).json({ error: "User not found" });
-    }
-    const oldData = oldDoc.data();
 
-    // 🔹 Ruxsat etilgan fieldlar (GROUP HAM QO‘SHILDI)
+    const oldData = oldDoc.data();
     const allowedFields = ["name", "surname", "phone", "groupId"];
     let updateData = {};
 
@@ -113,76 +112,63 @@ router.put("/:id", async (req, res) => {
       }
     });
 
-    // 🔥 AGAR GROUP O‘ZGARGAN BO‘LSA → groupName ni ham yangilaymiz
+    // Agar groupId o'zgargan bo'lsa → groupName ni yangilaymiz
     if (req.body.groupId !== undefined) {
-      const groupDoc = await db.collection("groups").doc(req.body.groupId).get();
+      const groupDoc = await db
+        .collection("groups")
+        .doc(req.body.groupId)
+        .get();
       updateData.groupName = groupDoc.exists ? groupDoc.data().name : "";
     }
 
-    // Agar hech narsa kelmagan bo‘lsa
     if (!Object.keys(updateData).length) {
       return res.json({ message: "No valid fields provided" });
     }
 
     updateData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
 
-    // 🔹 UPDATE
-    await userRef.update(updateData);
+    // 🔹 UPDATE with merge
+    await userRef.set(updateData, { merge: true });
 
-    // 🔹 Yangi ma’lumot
     const newDoc = await userRef.get();
     const newData = newDoc.data();
 
-    // 🔹 O‘zgarishlarni aniqlash
     let changes = [];
 
     if (oldData.name !== newData.name)
-      changes.push(`Ism / Имя: ${oldData.name || "-"} → ${newData.name || "-"}`);
-
+      changes.push(
+        `Ism / Имя: ${oldData.name || "-"} → ${newData.name || "-"}`,
+      );
     if (oldData.surname !== newData.surname)
-      changes.push(`Familiya / Фамилия: ${oldData.surname || "-"} → ${newData.surname || "-"}`);
-
+      changes.push(
+        `Familiya / Фамилия: ${oldData.surname || "-"} → ${newData.surname || "-"}`,
+      );
     if (oldData.phone !== newData.phone)
-      changes.push(`Telefon / Телефон: ${oldData.phone || "-"} → ${newData.phone || "-"}`);
-
-    // 🔥 GROUP O'ZGARISHINI HAM QO‘SHDIK
+      changes.push(
+        `Telefon / Телефон: ${oldData.phone || "-"} → ${newData.phone || "-"}`,
+      );
     if (oldData.groupName !== newData.groupName)
-      changes.push(`Guruh / Группа: ${oldData.groupName || "-"} → ${newData.groupName || "-"}`);
+      changes.push(
+        `Guruh / Группа: ${oldData.groupName || "-"} → ${newData.groupName || "-"}`,
+      );
 
-    // 🔹 Bot xabarlari
     if (changes.length) {
       const changeText = changes.join("\n");
 
-      // USER ga
       try {
         await bot.sendMessage(
           userId,
-`✏️ Ma'lumotlaringiz tahrirlandi:
-
-${changeText}
-
-Agar bu o‘zgarish siz tomoningizdan qilinmagan bo‘lsa, admin bilan bog‘laning.
-
-✏️ Ваши данные были изменены:
-
-${changeText}
-
-Если это сделали не вы, свяжитесь с администратором.`
+          `✏️ Ma'lumotlaringiz tahrirlandi:\n✏️ Ваши данные были изменены:\n\n${changeText}\n\nAgar bu o‘zgarish siz tomoningizdan qilinmagan bo‘lsa, admin bilan bog‘laning.\nЕсли это сделали не вы, свяжитесь с администратором.`,
         );
       } catch (err) {
         console.error("User notify error:", err);
       }
 
-      // ADMIN kanalga
       try {
         if (process.env.ADMIN_CHANNEL_ID) {
           await bot.sendMessage(
             process.env.ADMIN_CHANNEL_ID,
-`✏️ USER EDITED
-
-ID: ${userId}
-
-${changeText}`
+            `✏️ USER EDITED\n\nID: ${userId}\n\n${changeText}`,
           );
         }
       } catch (err) {
@@ -191,16 +177,14 @@ ${changeText}`
     }
 
     res.json({ id: newDoc.id, ...newData });
-
   } catch (err) {
     console.error("UPDATE USER ERROR:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// DELETE — user o‘chirish va Telegram xabar
+// DELETE — user o‘chirish
 const usersCollection = db.collection("users");
-
 router.delete("/:userId", async (req, res) => {
   const { userId } = req.params;
   if (!userId) return res.status(400).json({ error: "userId required" });
@@ -214,21 +198,13 @@ router.delete("/:userId", async (req, res) => {
 
     const { name = "", surname = "" } = userDoc.data();
 
-    // Payment o'chirish
-    const paymentRef = db.collection("payments").doc(String(userId));
-    const paymentDoc = await paymentRef.get();
-    if (paymentDoc.exists) await paymentRef.delete();
-
-    // User o'chirish
+    // ⚠️ Safe: only delete user, keep payments/history/logs intact
     await userRef.delete();
 
-    // Telegram xabar alohida try/catch
     try {
       await bot.sendMessage(
         userId,
-        `Hurmatli ${name} ${surname}, siz tizimdan o'chirildingiz. Qayta ro'yxatdan o'tish uchun /start ni bosing!
-        
-Уважаемый(ая) ${name} ${surname}, вы были удалены из системы. Чтобы зарегистрироваться снова, нажмите /start!`,
+        `Hurmatli ${name} ${surname}, siz tizimdan o'chirildingiz. Qayta ro'yxatdan o'tish uchun /start ni bosing!\n\nУважаемый(ая) ${name} ${surname}, вы были удалены из системы. Чтобы зарегистрироваться снова, нажмите /start!`,
       );
     } catch (botErr) {
       console.error("Bot xabari yuborilmadi:", botErr);

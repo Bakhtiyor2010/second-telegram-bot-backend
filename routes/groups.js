@@ -52,28 +52,29 @@ router.put("/:id", async (req, res) => {
 
     const batch = db.batch();
 
+    const notifyPromises = [];
+
     for (const doc of usersSnapshot.docs) {
       const userRef = usersCollection.doc(doc.id);
-
-      // 🔥 user hujjatida groupName sync
       batch.update(userRef, { groupName: name });
 
       const user = doc.data();
       if (user.telegramId) {
-        await bot.sendMessage(
-          user.telegramId,
-          `ℹ️ Sizning guruh nomingiz "${name}" ga o'zgartirildi.
+        notifyPromises.push(
+          bot
+            .sendMessage(
+              user.telegramId,
+              `ℹ️ Sizning guruh nomingiz "${name}" ga o'zgartirildi.
 
-ℹ️ Название вашей группы было изменено на "${name}".`
-        ).catch(console.error);
+ℹ️ Название вашей группы было изменено на "${name}".`,
+            )
+            .catch(console.error),
+        );
       }
     }
 
-    // 🔹 BATCH update
     await batch.commit();
-
-    res.json({ success: true, updatedUsers: usersSnapshot.size });
-
+    await Promise.all(notifyPromises);
   } catch (err) {
     console.error("GROUP UPDATE ERROR:", err);
     res.status(500).json({ error: "Server error" });

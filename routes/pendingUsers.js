@@ -6,7 +6,8 @@ const db = admin.firestore();
 // barcha pending userlar
 router.get("/", async (req, res) => {
   try {
-    const snapshot = await db.collection("users_pending").get();
+      const { limit = 50 } = req.query;
+  const snapshot = await db.collection("users_pending").limit(Number(limit)).get();
 
     const users = snapshot.docs.map(doc => ({
       telegramId: doc.id,

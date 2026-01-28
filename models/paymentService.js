@@ -1,58 +1,21 @@
+const db = require("../config/db");
 const admin = require("firebase-admin");
-const db = admin.firestore();
 
-// 🔹 Payment qo‘shish
 async function setPaid(userId, name, surname) {
-  if (!userId || !name || !surname)
-    throw new Error("userId, name and surname are required");
-
+  const today = new Date().toISOString().split("T")[0];
   const paidAt = admin.firestore.Timestamp.now();
-  const docRef = db.collection("payments").doc(userId);
-  const doc = await docRef.get();
-  const today = new Date();
-  const dayKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`; // YYYY-M-D
 
-  const record = {
-    status: "paid",
-    name,
-    surname,
-    date: paidAt,
-    dayKey,
-  };
+  const userRef = db.collection("payments").doc(userId);
+  const historyRef = userRef.collection("history").doc(today);
 
-  if (doc.exists) {
-    const history = doc.data().history || [];
-    const existsIndex = history.findIndex((h) => h.dayKey === dayKey);
+  await userRef.set(
+    { currentStatus: "paid", paidAt, unpaidFrom: null, name, surname },
+    { merge: true }
+  );
 
-    if (existsIndex >= 0) {
-      // agar bugungi sana recordi bor bo‘lsa, uni yangilaymiz
-      history[existsIndex] = record;
-      await docRef.update({
-        history,
-        currentStatus: "paid",
-        paidAt,
-        unpaidFrom: null,
-      });
-    } else {
-      // yo‘q bo‘lsa arrayUnion bilan qo‘shamiz
-      await docRef.update({
-        history: admin.firestore.FieldValue.arrayUnion(record),
-        currentStatus: "paid",
-        paidAt,
-        unpaidFrom: null,
-      });
-    }
-  } else {
-    await docRef.set({
-      currentStatus: "paid",
-      paidAt,
-      unpaidFrom: null,
-      history: [record],
-    });
-  }
-
-  return { paidAt: paidAt.toDate() };
+  await historyRef.set({ status: "paid", name, surname, date: paidAt, dayKey: today });
 }
+
 
 // 🔹 So'ngi to‘lovni o‘chirish
 async function setUnpaid(userId) {
@@ -104,24 +67,42 @@ async function setUnpaid(userId) {
 
 // 🔹 Barcha paymentlarni olish
 async function getAllPayments() {
-  const snap = await db.collection("payments").get();
   const payments = {};
 
-  snap.forEach((doc) => {
+  // NEW
+  const newSnap = await db.collectionGroup("history").get();
+  newSnap.forEach(doc => {
+    const userId = doc.ref.parent.parent.id;
+    const h = doc.data();
+
+    if (!payments[userId]) payments[userId] = { history: [] };
+
+    payments[userId].history.push({
+      status: h.status,
+      name: h.name,
+      surname: h.surname,
+      date: h.date.toDate(),
+      dayKey: h.dayKey,
+    });
+  });
+
+  // OLD
+  const oldSnap = await db.collection("payments").get();
+  oldSnap.forEach(doc => {
     const data = doc.data();
-    payments[doc.id] = {
-      paidAt: data.paidAt ? data.paidAt.toDate() : null,
-      history: data.history
-        ? data.history.map((h) => ({
-            status: h.status,
-            name: h.name || null,
-            surname: h.surname || null,
-            // 🔹 Firestore Timestamp → JS Date
-            date: h.date ? h.date.toDate() : null,
-            dayKey: h.dayKey || null,
-          }))
-        : [],
-    };
+    if (!Array.isArray(data.history)) return;
+
+    if (!payments[doc.id]) payments[doc.id] = { history: [] };
+
+    data.history.forEach(h => {
+      payments[doc.id].history.push({
+        status: h.status,
+        name: h.name,
+        surname: h.surname,
+        date: h.date.toDate(),
+        dayKey: h.dayKey,
+      });
+    });
   });
 
   return payments;

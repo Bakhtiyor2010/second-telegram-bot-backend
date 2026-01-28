@@ -1,7 +1,7 @@
+const db = require("../config/db");
 const admin = require("firebase-admin");
-const db = admin.firestore();
 
-// 🔹 Attendance qo‘shish
+// 🔹 Add attendance (WRITES ONLY NEW STRUCTURE)
 async function addAttendance(
   telegramId,
   status,
@@ -9,18 +9,16 @@ async function addAttendance(
   surname,
   phone,
   groupName,
-  adminName // <-- shu yerda admin username keladi
+  adminName
 ) {
   if (!telegramId || !status) throw new Error("Invalid attendance data");
 
   const today = new Date().toISOString().split("T")[0];
-  const docRef = db.collection("attendance").doc(String(telegramId));
-  const doc = await docRef.get();
 
-  let history = [];
-  if (doc.exists && Array.isArray(doc.data().history)) history = doc.data().history;
+  const userRef = db.collection("attendance").doc(String(telegramId));
+  const historyRef = userRef.collection("history").doc(today);
 
-  const todayIndex = history.findIndex(h => h.day === today);
+  await userRef.set({ name, surname, phone }, { merge: true });
 
   const record = {
     day: today,
@@ -29,25 +27,40 @@ async function addAttendance(
     surname,
     phone,
     groupName,
-    admin: adminName || "Admin", // <-- POST dan kelgan admin username
+    admin: adminName || "Admin",
     updatedAt: admin.firestore.Timestamp.now(),
   };
 
-  if (todayIndex !== -1) history[todayIndex] = record;
-  else history.push(record);
+  await historyRef.set(record); // NO READ
 
-  await docRef.set({ history }, { merge: true });
   return record;
 }
 
 // 🔹 Barcha attendancelarni olish
 async function getAllAttendance() {
-  const snap = await db.collection("attendance").get();
   const result = [];
 
-  snap.forEach(doc => {
+  // 🟢 NEW STRUCTURE
+  const newSnap = await db.collectionGroup("history").get();
+  newSnap.forEach(doc => {
+    const h = doc.data();
+    result.push({
+      telegramId: doc.ref.parent.parent.id,
+      name: h.name,
+      surname: h.surname,
+      phone: h.phone || "",
+      groupName: h.groupName || "",
+      admin: h.admin || "",
+      status: h.status,
+      date: h.updatedAt.toDate(),
+    });
+  });
+
+  // 🟡 OLD STRUCTURE (fallback)
+  const oldSnap = await db.collection("attendance").get();
+  oldSnap.forEach(doc => {
     const data = doc.data();
-    if (!data.history) return;
+    if (!Array.isArray(data.history)) return;
 
     data.history.forEach(h => {
       result.push({
@@ -56,11 +69,9 @@ async function getAllAttendance() {
         surname: h.surname,
         phone: h.phone || "",
         groupName: h.groupName || "",
-        admin: h.admin || "", // <-- shu yerda frontend-da admin ko‘rinadi
+        admin: h.admin || "",
         status: h.status,
-        date: h.updatedAt instanceof admin.firestore.Timestamp
-          ? h.updatedAt.toDate()
-          : new Date(h.updatedAt),
+        date: h.updatedAt.toDate(),
       });
     });
   });
@@ -71,22 +82,37 @@ async function getAllAttendance() {
 // 🔹 Bitta foydalanuvchi uchun history
 async function getUserAttendance(userId) {
   if (!userId) return [];
-  const docRef = db.collection("attendance").doc(userId);
-  const doc = await docRef.get();
-  if (!doc.exists) return [];
 
-  const data = doc.data();
-  return data.history
-    ? data.history.map(h => ({
+  const userRef = db.collection("attendance").doc(userId);
+  const result = [];
+
+  // 🟢 New
+  const newSnap = await userRef.collection("history").get();
+  newSnap.forEach(doc => {
+    const h = doc.data();
+    result.push({
+      status: h.status,
+      name: h.name,
+      surname: h.surname,
+      date: h.updatedAt.toDate(),
+    });
+  });
+
+  // 🟡 Old
+  const oldDoc = await userRef.get();
+  const data = oldDoc.data();
+  if (Array.isArray(data?.history)) {
+    data.history.forEach(h => {
+      result.push({
         status: h.status,
         name: h.name,
         surname: h.surname,
-        date:
-          h.updatedAt instanceof admin.firestore.Timestamp
-            ? h.updatedAt.toDate()
-            : new Date(h.updatedAt),
-      }))
-    : [];
+        date: h.updatedAt.toDate(),
+      });
+    });
+  }
+
+  return result.sort((a, b) => b.date - a.date);
 }
 
 module.exports = {
