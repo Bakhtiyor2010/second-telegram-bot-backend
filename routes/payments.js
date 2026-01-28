@@ -83,16 +83,20 @@ router.post("/unpaid", async (req, res) => {
     const { userId, name, surname } = req.body;
     if (!userId) return res.status(400).json({ error: "userId required" });
 
-    await setUnpaid(userId);
+    const result = await setUnpaid(userId, name, surname);
 
     if (bot) {
       await bot.sendMessage(
         userId,
-        `Hurmatli ${name || ""} ${surname || ""}!\nIltimos, to‘lovni tezroq amalga oshiring.\n\nУважаемый(ая) ${name || ""} ${surname || ""}!\nПожалуйста, произведите оплату как можно скорее.`,
+        `Hurmatli ${name || ""} ${surname || ""}! Iltimos, to‘lovni tezroq amalga oshiring.\n\nУважаемый(ая) ${name || ""} ${surname || ""}! Пожалуйста, произведите оплату как можно скорее.`
       );
     }
 
-    res.json({ success: true });
+    // ✅ Send success flag so frontend doesn't show error
+    res.json({
+      success: true,
+      unpaidAt: result.unpaidAt
+    });
   } catch (err) {
     console.error("UNPAID ERROR:", err);
     res.status(500).json({ error: err.message || "Unpaid failed" });

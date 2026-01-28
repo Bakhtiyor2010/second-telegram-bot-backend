@@ -3,90 +3,86 @@ const admin = require("firebase-admin");
 
 async function setPaid(userId, name, surname) {
   const today = new Date().toISOString().split("T")[0];
-  const paidAt = admin.firestore.Timestamp.now();
+  const paidAtTimestamp = admin.firestore.Timestamp.now();
 
   const userRef = db.collection("payments").doc(userId);
   const historyRef = userRef.collection("history").doc(today);
 
   await userRef.set(
-    { currentStatus: "paid", paidAt, unpaidFrom: null, name, surname },
+    { currentStatus: "paid", paidAt: paidAtTimestamp, unpaidFrom: null, name, surname },
     { merge: true }
   );
 
-  await historyRef.set({ status: "paid", name, surname, date: paidAt, dayKey: today });
+  await historyRef.set({ status: "paid", name, surname, date: paidAtTimestamp, dayKey: today });
+
+  // ✅ Return paidAt as a Date
+  return { paidAt: paidAtTimestamp.toDate() };
 }
 
-
 // 🔹 So'ngi to‘lovni o‘chirish
-async function setUnpaid(userId) {
+// Mark as Unpaid
+async function setUnpaid(userId, name = "-", surname = "-") {
   if (!userId) throw new Error("userId required");
 
-  const docRef = db.collection("payments").doc(userId);
-  const doc = await docRef.get();
-  const unpaidAt = admin.firestore.Timestamp.now();
-  const today = new Date();
-  const dayKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+  const today = new Date().toISOString().split("T")[0];
+  const unpaidAtTimestamp = admin.firestore.Timestamp.now();
 
-  const record = {
-    status: "unpaid",
-    date: unpaidAt,
-    dayKey,
-  };
+  const userRef = db.collection("payments").doc(userId);
+  const historyRef = userRef.collection("history").doc(today);
 
-  if (doc.exists) {
-    const history = doc.data().history || [];
-    const existsIndex = history.findIndex((h) => h.dayKey === dayKey);
-
-    if (existsIndex >= 0) {
-      history[existsIndex] = record;
-      await docRef.update({
-        history,
-        currentStatus: "unpaid",
-        paidAt: null,
-        unpaidFrom: unpaidAt,
-      });
-    } else {
-      await docRef.update({
-        history: admin.firestore.FieldValue.arrayUnion(record),
-        currentStatus: "unpaid",
-        paidAt: null,
-        unpaidFrom: unpaidAt,
-      });
-    }
-  } else {
-    await docRef.set({
+  // Update current status in main doc
+  await userRef.set(
+    {
       currentStatus: "unpaid",
+      unpaidFrom: unpaidAtTimestamp,
       paidAt: null,
-      unpaidFrom: unpaidAt,
-      history: [record],
-    });
-  }
+      name,
+      surname
+    },
+    { merge: true }
+  );
 
-  return { unpaidAt: unpaidAt.toDate() };
+  // Add unpaid record to history subcollection (consistent with setPaid)
+  await historyRef.set({
+    status: "unpaid",
+    name,
+    surname,
+    date: unpaidAtTimestamp,
+    dayKey: today
+  });
+
+  return { unpaidAt: unpaidAtTimestamp.toDate() };
 }
 
 // 🔹 Barcha paymentlarni olish
 async function getAllPayments() {
   const payments = {};
 
-  // NEW
+  // NEW: collectionGroup "history"
   const newSnap = await db.collectionGroup("history").get();
   newSnap.forEach(doc => {
-    const userId = doc.ref.parent.parent.id;
+    const parentDoc = doc.ref.parent.parent;
+    if (!parentDoc) return; // skip if no parent
+
+    const userId = parentDoc.id;
     const h = doc.data();
 
     if (!payments[userId]) payments[userId] = { history: [] };
 
+    // check h.date
+    let dateObj = null;
+    if (h.date && h.date.toDate) dateObj = h.date.toDate();
+
     payments[userId].history.push({
-      status: h.status,
-      name: h.name,
-      surname: h.surname,
-      date: h.date.toDate(),
-      dayKey: h.dayKey,
+      status: h.status || "unknown",
+      name: h.name || "-",
+      surname: h.surname || "-",
+      date: dateObj,
+      dayKey: h.dayKey || null,
     });
   });
 
-  // OLD
+  // OLD: payments collection
   const oldSnap = await db.collection("payments").get();
   oldSnap.forEach(doc => {
     const data = doc.data();
@@ -95,12 +91,15 @@ async function getAllPayments() {
     if (!payments[doc.id]) payments[doc.id] = { history: [] };
 
     data.history.forEach(h => {
+      let dateObj = null;
+      if (h.date && h.date.toDate) dateObj = h.date.toDate();
+
       payments[doc.id].history.push({
-        status: h.status,
-        name: h.name,
-        surname: h.surname,
-        date: h.date.toDate(),
-        dayKey: h.dayKey,
+        status: h.status || "unknown",
+        name: h.name || "-",
+        surname: h.surname || "-",
+        date: dateObj,
+        dayKey: h.dayKey || null,
       });
     });
   });
