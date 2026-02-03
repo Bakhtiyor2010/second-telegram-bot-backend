@@ -17,63 +17,54 @@ function formatDate(date) {
   return `${day}/${month}/${year}`;
 }
 
-// Helper: month names
-const monthsUz = [
-  "Yanvar",
-  "Fevral",
-  "Mart",
-  "Aprel",
-  "May",
-  "Iyun",
-  "Iyul",
-  "Avgust",
-  "Sentabr",
-  "Oktyabr",
-  "Noyabr",
-  "Dekabr",
-];
-
-const monthsRu = [
-  "Январь",
-  "Февраль",
-  "Март",
-  "Апрель",
-  "Май",
-  "Июнь",
-  "Июль",
-  "Август",
-  "Сентябрь",
-  "Октябрь",
-  "Ноябрь",
-  "Декабрь",
-];
-
 // --------------------- POST /paid ---------------------
 router.post("/paid", async (req, res) => {
   try {
-    const { userId, name, surname } = req.body;
-    if (!userId || !name || !surname)
-      return res
-        .status(400)
-        .json({ error: "userId, name and surname required" });
+    const { userId, name, surname, month, year } = req.body;
+    if (!userId || !name || !surname || !month || !year)
+      return res.status(400).json({ error: "userId, name, surname, month, and year required" });
 
-    const { paidAt } = await setPaid(userId, name, surname);
+    const { paidAt, monthKey } = await setPaid(userId, name, surname, month, year);
 
     if (bot) {
-      const monthName = monthsUz[new Date(paidAt).getMonth()];
-      const russianMonthName = monthsRu[new Date(paidAt).getMonth()];
+      const monthNameUz = month;
+      const monthNameRu = month;
       const dateStr = formatDate(paidAt);
 
       await bot.sendMessage(
         userId,
-        `Assalomu alaykum, hurmatli ${name} ${surname}!\n${monthName} oyi kurs to‘lovi qabul qilindi (📅 ${dateStr})\n\nЗдравствуйте, уважаемый(ая) ${name} ${surname}!\nОплата курса за ${russianMonthName} принята (📅 ${dateStr})`,
+        `Assalomu alaykum, hurmatli ${name} ${surname}!\n${monthNameUz} oyi kurs to‘lovi qabul qilindi (📅 ${dateStr})\n\n` +
+        `Здравствуйте, уважаемый(ая) ${name} ${surname}!\nОплата курса за ${monthNameRu} принята (📅 ${dateStr})`
       );
     }
 
-    res.json({ success: true, paidAt });
+    res.json({ success: true, paidAt, monthKey });
   } catch (err) {
     console.error("PAID ERROR:", err);
     res.status(500).json({ error: err.message || "Paid failed" });
+  }
+});
+
+router.post("/unpaid", async (req, res) => {
+  try {
+    const { userId, name, surname, month, year } = req.body;
+    if (!userId || !month || !year)
+      return res.status(400).json({ error: "userId, month, and year required" });
+
+    const { unpaidAt, monthKey } = await setUnpaid(userId, name, surname, month, year);
+
+    if (bot) {
+      await bot.sendMessage(
+        userId,
+        `Hurmatli ${name || ""} ${surname || ""}! Iltimos, ${month} oyining to‘lovini tezroq amalga oshiring.\n\n` +
+        `Уважаемый(ая) ${name || ""} ${surname || ""}! Пожалуйста, произведите оплату за ${month} как можно скорее.`
+      );
+    }
+
+    res.json({ success: true, unpaidAt, monthKey });
+  } catch (err) {
+    console.error("UNPAID ERROR:", err);
+    res.status(500).json({ error: err.message || "Unpaid failed" });
   }
 });
 

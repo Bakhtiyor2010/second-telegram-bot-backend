@@ -1,75 +1,84 @@
 const db = require("../config/db");
 const admin = require("firebase-admin");
 
-async function setPaid(userId, name, surname) {
-  const today = new Date().toISOString().split("T")[0];
+// 🔹 Mark as Paid
+async function setPaid(userId, name, surname, month, year) {
+  if (!userId || !month || !year) throw new Error("userId, month, and year required");
+
   const paidAtTimestamp = admin.firestore.Timestamp.now();
+  const monthKey = `${month}-${year}`;
 
   const userRef = db.collection("payments").doc(userId);
-  const historyRef = userRef.collection("history").doc(today);
+  const historyRef = userRef.collection("history").doc(monthKey);
 
   await userRef.set(
-    { currentStatus: "paid", paidAt: paidAtTimestamp, unpaidFrom: null, name, surname },
+    {
+      currentStatus: "paid",
+      paidAt: paidAtTimestamp,
+      unpaidFrom: null,
+      name,
+      surname,
+    },
     { merge: true }
   );
 
-  await historyRef.set({ status: "paid", name, surname, date: paidAtTimestamp, dayKey: today });
+  await historyRef.set({
+    status: "paid",
+    name,
+    surname,
+    date: paidAtTimestamp,
+    monthKey,
+  });
 
-  // ✅ Return paidAt as a Date
-  return { paidAt: paidAtTimestamp.toDate() };
+  return { paidAt: paidAtTimestamp.toDate(), monthKey };
 }
 
-// 🔹 So'ngi to‘lovni o‘chirish
-// Mark as Unpaid
-async function setUnpaid(userId, name = "-", surname = "-") {
-  if (!userId) throw new Error("userId required");
+// 🔹 Mark as Unpaid
+async function setUnpaid(userId, name = "-", surname = "-", month, year) {
+  if (!userId || !month || !year) throw new Error("userId, month, and year required");
 
-  const today = new Date().toISOString().split("T")[0];
   const unpaidAtTimestamp = admin.firestore.Timestamp.now();
+  const monthKey = `${month}-${year}`;
 
   const userRef = db.collection("payments").doc(userId);
-  const historyRef = userRef.collection("history").doc(today);
+  const historyRef = userRef.collection("history").doc(monthKey);
 
-  // Update current status in main doc
   await userRef.set(
     {
       currentStatus: "unpaid",
       unpaidFrom: unpaidAtTimestamp,
       paidAt: null,
       name,
-      surname
+      surname,
     },
     { merge: true }
   );
 
-  // Add unpaid record to history subcollection (consistent with setPaid)
   await historyRef.set({
     status: "unpaid",
     name,
     surname,
     date: unpaidAtTimestamp,
-    dayKey: today
+    monthKey,
   });
 
-  return { unpaidAt: unpaidAtTimestamp.toDate() };
+  return { unpaidAt: unpaidAtTimestamp.toDate(), monthKey };
 }
 
-// 🔹 Barcha paymentlarni olish
+// 🔹 Get all payments
 async function getAllPayments() {
   const payments = {};
 
-  // NEW: collectionGroup "history"
+  // Use collectionGroup "history"
   const newSnap = await db.collectionGroup("history").get();
-  newSnap.forEach(doc => {
+  newSnap.forEach((doc) => {
     const parentDoc = doc.ref.parent.parent;
-    if (!parentDoc) return; // skip if no parent
-
+    if (!parentDoc) return;
     const userId = parentDoc.id;
     const h = doc.data();
 
     if (!payments[userId]) payments[userId] = { history: [] };
 
-    // check h.date
     let dateObj = null;
     if (h.date && h.date.toDate) dateObj = h.date.toDate();
 
@@ -78,19 +87,18 @@ async function getAllPayments() {
       name: h.name || "-",
       surname: h.surname || "-",
       date: dateObj,
-      dayKey: h.dayKey || null,
+      monthKey: h.monthKey || null,
     });
   });
 
-  // OLD: payments collection
+  // Keep old logic for payments collection if needed
   const oldSnap = await db.collection("payments").get();
-  oldSnap.forEach(doc => {
+  oldSnap.forEach((doc) => {
     const data = doc.data();
     if (!Array.isArray(data.history)) return;
-
     if (!payments[doc.id]) payments[doc.id] = { history: [] };
 
-    data.history.forEach(h => {
+    data.history.forEach((h) => {
       let dateObj = null;
       if (h.date && h.date.toDate) dateObj = h.date.toDate();
 
@@ -99,7 +107,7 @@ async function getAllPayments() {
         name: h.name || "-",
         surname: h.surname || "-",
         date: dateObj,
-        dayKey: h.dayKey || null,
+        monthKey: h.monthKey || null,
       });
     });
   });
@@ -107,4 +115,8 @@ async function getAllPayments() {
   return payments;
 }
 
-module.exports = { setPaid, setUnpaid, getAllPayments };
+module.exports = {
+  setPaid,
+  setUnpaid,
+  getAllPayments,
+};
